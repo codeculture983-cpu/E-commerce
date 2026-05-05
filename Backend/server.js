@@ -37,7 +37,16 @@ app.use(cors({
   ],
   credentials: true
 }));
-
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://forever-gjem.onrender.com"
+    ],
+    credentials: true
+  }
+});
 io.on("connection", (socket) => {
   console.log("🔵 Admin connected:", socket.id);
 
