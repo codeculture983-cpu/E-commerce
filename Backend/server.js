@@ -39,7 +39,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://your-frontend-domain.vercel.app"
+      "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app"
     ],
     credentials: true,
   })
