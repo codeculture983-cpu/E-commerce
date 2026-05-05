@@ -33,14 +33,16 @@ connectCloudinary();
 
 const port = process.env.PORT || 4000;
 
-// ================= CORS (FIXED - ONLY ONCE) =================
+// ================= CORS (FIXED) =================
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app"
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app"
-    ],
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -48,11 +50,7 @@ app.use(
 // ================= SOCKET.IO =================
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app"
-    ],
+    origin: allowedOrigins,
     credentials: true,
   },
 });
@@ -69,16 +67,16 @@ io.on("connection", (socket) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================= STATIC FILES (UPLOADS) =================
+// ================= STATIC FILES =================
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-// ================= REQUEST LOGGER =================
+// ================= LOGGING =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
 });
 
-// ================= ROUTES =================
+// ================= API ROUTES (IMPORTANT: BEFORE FRONTEND) =================
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/cart", cartRouter);
@@ -101,37 +99,30 @@ try {
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// ================= HOME ROUTE =================
+// ================= HEALTH CHECK =================
+app.get("/api/health", (req, res) => {
+  res.json({ status: "OK" });
+});
+
+// ================= HOME =================
 app.get("/", (req, res) => {
   res.send("🚀 API is running successfully!");
 });
 
-
+// ================= FRONTEND (PRODUCTION FIX) =================
 const __dirname = path.resolve();
 
-// serve frontend static files
+// serve frontend build
 app.use(express.static(path.join(__dirname, "frontend/dist")));
 
-// SPA fallback (THIS FIXES REFRESH ISSUE)
+// SPA fallback (MUST BE LAST)
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
 });
-
-// ================= OPTIONAL: SERVE FRONTEND (FOR RENDER DEPLOYMENT) =================
-// Uncomment ONLY if frontend is inside same project (build folder)
-/*
-const __dirname = path.resolve();
-
-app.use(express.static(path.join(__dirname, "frontend/dist")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
-});
-*/
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 Error:", err);
+  console.error("🔥 Server Error:", err);
 
   res.status(500).json({
     success: false,
