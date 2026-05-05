@@ -33,16 +33,13 @@ connectCloudinary();
 
 const port = process.env.PORT || 4000;
 
-// ================= CORS (FIXED) =================
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app"
-];
+// ================= CORS (FINAL FIX) =================
+const frontendURL = "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app";
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: frontendURL,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
@@ -50,7 +47,8 @@ app.use(
 // ================= SOCKET.IO =================
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: frontendURL,
+    methods: ["GET", "POST"],
     credentials: true,
   },
 });
@@ -76,7 +74,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ================= API ROUTES (IMPORTANT: BEFORE FRONTEND) =================
+// ================= API ROUTES =================
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/cart", cartRouter);
@@ -109,13 +107,11 @@ app.get("/", (req, res) => {
   res.send("🚀 API is running successfully!");
 });
 
-// ================= FRONTEND (PRODUCTION FIX) =================
+// ================= FRONTEND (REACT BUILD) =================
 const __dirname = path.resolve();
 
-// serve frontend build
 app.use(express.static(path.join(__dirname, "frontend/dist")));
 
-// SPA fallback (MUST BE LAST)
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
 });
