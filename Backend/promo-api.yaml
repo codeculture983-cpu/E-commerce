@@ -1,0 +1,17 @@
+openapi: 3.0.0
+info:
+  title: Promo Code API
+  version: 1.0.0
+paths:
+  /api/promo/list:
+    get:
+      summary: Get all promo codes
+      responses:
+        '200':
+          description: Success
+  /api/promo/add:
+    post:
+      summary: Create a promo code
+      responses:
+        '200':
+          description: Created

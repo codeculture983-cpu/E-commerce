@@ -1,0 +1,57 @@
+### CREATE PRODUCT
+POST http://localhost:4000/api/product/add
+Content-Type: multipart/form-data; boundary=----WebKitForm
+
+------WebKitForm
+Content-Disposition: form-data; name="name"
+
+Testing Name
+------WebKitForm
+Content-Disposition: form-data; name="description"
+
+Testing D
+------WebKitForm
+Content-Disposition: form-data; name="price"
+
+10
+------WebKitForm
+Content-Disposition: form-data; name="category"
+
+men
+------WebKitForm
+Content-Disposition: form-data; name="subCategory"
+
+topwear
+------WebKitForm
+Content-Disposition: form-data; name="bestSeller"
+
+true
+------WebKitForm
+Content-Disposition: form-data; name="sizes"
+
+["M","S","L"]
+------WebKitForm
+Content-Disposition: form-data; name="reviews"
+
+[{"user":"Ali","rating":5,"comment":"Great product!"}]
+------WebKitForm
+Content-Disposition: form-data; name="image1"; filename="p_img2_1.png"
+Content-Type: image/png
+
+< ./p_img2_1.png
+------WebKitForm
+Content-Disposition: form-data; name="image2"; filename="p_img2_2.png"
+Content-Type: image/png
+
+< ./p_img2_2.png
+------WebKitForm
+Content-Disposition: form-data; name="image3"; filename="p_img2_3.png"
+Content-Type: image/png
+
+< ./p_img2_3.png
+------WebKitForm
+Content-Disposition: form-data; name="image4"; filename="p_img2_4.png"
+Content-Type: image/png
+
+< ./p_img2_4.png
+------WebKitForm--
