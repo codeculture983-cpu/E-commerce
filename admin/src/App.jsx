@@ -15,7 +15,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export const backendUrl =
-  import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+  " https://forever-backend-f3kf.onrender.com";
 
 export const currency = "$";
 
