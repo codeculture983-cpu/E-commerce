@@ -30,7 +30,9 @@ const upload = multer({ storage });
 router.post("/add", adminAuth, upload.fields([
   { name: "image1" }, { name: "image2" }, { name: "image3" }, { name: "image4" }
 ]), addProduct);
-
+router.get("/", (req, res) => {
+  res.json({ message: "Product route working" });
+});
 router.get("/list", listProducts);
 router.post("/remove", adminAuth, removeProduct);
 router.put("/:id", updateProductDetails);
