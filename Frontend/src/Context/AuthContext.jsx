@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 export const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
-  const backend_url = import.meta.env.VITE_BACKEND_URL;
+  const backend_url = "https://forever-backend-f3kf.onrender.com";
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
