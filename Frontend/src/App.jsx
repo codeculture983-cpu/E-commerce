@@ -15,7 +15,7 @@ import Collection from "./Pages/Collection.jsx";
 import Contact from "./Pages/Contact.jsx";
 import Product from "./Pages/Product.jsx";
 import Cart from "./Pages/Cart.jsx";
-import Verify from "./Pages/verify.jsx";
+import Verify from "./Pages/Verify.jsx";
 import Privacy from "./Pages/Privacy.jsx";
 import Terms from "./Pages/Terms.jsx";
 import Refund from "./Pages/Refund.jsx";
