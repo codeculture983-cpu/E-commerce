@@ -106,6 +106,17 @@ app.get("/", (req, res) => {
   res.send("🚀 API is running successfully!");
 });
 
+
+const __dirname = path.resolve();
+
+// serve frontend static files
+app.use(express.static(path.join(__dirname, "frontend/dist")));
+
+// SPA fallback (THIS FIXES REFRESH ISSUE)
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
+});
+
 // ================= OPTIONAL: SERVE FRONTEND (FOR RENDER DEPLOYMENT) =================
 // Uncomment ONLY if frontend is inside same project (build folder)
 /*
