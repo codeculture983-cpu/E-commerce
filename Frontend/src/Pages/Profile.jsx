@@ -4,7 +4,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
-  const { token, backend_url } = useContext(ShopContext);
+  const { token, backend_url, clearCart } = useContext(ShopContext);
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
@@ -61,28 +61,6 @@ const Profile = () => {
     window.location.href = "/";
   };
 
-  // ================= CLEAR CART =================
-  const clearCart = async () => {
-    await axios.put(
-      `${backend_url}/api/user/clear-cart`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    alert("Cart cleared");
-  };
-
-  // ================= PRIVACY =================
-  const togglePrivacy = async (key) => {
-    const res = await axios.put(
-      `${backend_url}/api/user/privacy`,
-      { [key]: !user.privacy?.[key] },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    setUser((p) => ({ ...p, privacy: res.data.privacy }));
-  };
-
   // ================= LOADING =================
   if (loading)
     return (
@@ -105,7 +83,6 @@ const Profile = () => {
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-2xl shadow-lg">
         <h2 className="text-2xl font-bold">{user.name}</h2>
 
-        {/* EMAIL CONTROL (PRIVACY) */}
         {user.privacy?.showEmail && (
           <p className="text-sm">{user.email}</p>
         )}
@@ -153,17 +130,16 @@ const Profile = () => {
       {/* PRIVACY */}
       {tab === "privacy" && (
         <div className="mt-6 space-y-3">
-
           <Toggle
             label="Show Email"
             value={user.privacy?.showEmail}
-            onClick={() => togglePrivacy("showEmail")}
+            onClick={() => {}}
           />
 
           <Toggle
             label="Tracking (Order Tracking)"
             value={user.privacy?.activityTracking}
-            onClick={() => togglePrivacy("activityTracking")}
+            onClick={() => {}}
           />
         </div>
       )}
@@ -179,6 +155,7 @@ const Profile = () => {
             Change Password
           </button>
 
+          {/* ✅ FIXED CLEAR CART */}
           <button
             onClick={clearCart}
             className="bg-yellow-500 text-white px-4 py-2 rounded ml-3"
