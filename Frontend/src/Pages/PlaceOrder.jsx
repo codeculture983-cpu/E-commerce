@@ -35,7 +35,6 @@ const PlaceOrder = () => {
     phone: "",
   });
 
-  // Load Stripe script (optional future use)
   useEffect(() => {
     if (!window.Razorpay) {
       const script = document.createElement("script");
@@ -52,7 +51,6 @@ const PlaceOrder = () => {
     }));
   };
 
-  // ================= ORDER ITEMS =================
   const getOrderItems = () => {
     let orderItems = [];
 
@@ -84,7 +82,6 @@ const PlaceOrder = () => {
     return orderItems;
   };
 
-  // ================= SUBMIT ORDER =================
   const onSubmitHandler = async (e) => {
     e.preventDefault();
 
@@ -112,7 +109,6 @@ const PlaceOrder = () => {
         address: formData,
       };
 
-      // ================= COD =================
       if (method === "cod") {
         const { data } = await axios.post(
           `${backend_url}/api/order/place`,
@@ -132,7 +128,6 @@ const PlaceOrder = () => {
         }
       }
 
-      // ================= STRIPE =================
       if (method === "stripe") {
         const { data } = await axios.post(
           `${backend_url}/api/order/stripe`,
@@ -185,35 +180,30 @@ const PlaceOrder = () => {
         <div className="mt-5">
           <Title text1="PAYMENT" text2="METHOD" />
 
-          {/* PAYMENT METHODS */}
-<div className="flex flex-col gap-3 mt-3">
+          <div className="flex flex-col gap-3 mt-3">
 
-  {/* COD */}
-  <div
-    onClick={() => setMethod("cod")}
-    className={`border p-3 cursor-pointer transition-all duration-200
-      ${method === "cod"
-        ? "border-green-500 bg-green-50"
-        : "border-gray-300"
-      }`}
-  >
-    Cash on Delivery
-  </div>
+            {/* COD */}
+            <div
+              onClick={() => setMethod("cod")}
+              className={`border p-3 cursor-pointer ${
+                method === "cod" ? "border-green-500" : ""
+              }`}
+            >
+              Cash on Delivery
+            </div>
 
-  {/* STRIPE */}
-  <div
-    onClick={() => setMethod("stripe")}
-    className={`border p-3 cursor-pointer flex items-center gap-2 transition-all duration-200
-      ${method === "stripe"
-        ? "border-green-500 bg-green-50"
-        : "border-gray-300"
-      }`}
-  >
-    <img src={assets.stripe_logo} className="h-5" />
-    Stripe
-  </div>
+            {/* STRIPE */}
+            <div
+              onClick={() => setMethod("stripe")}
+              className={`border p-3 cursor-pointer flex items-center gap-2 ${
+                method === "stripe" ? "border-green-500" : ""
+              }`}
+            >
+              <img src={assets.stripe_logo} className="h-5" />
+              Stripe
+            </div>
 
-</div>
+          </div>
 
           <button
             type="submit"
