@@ -21,11 +21,28 @@ import adminReviewRoutes from "./routes/adminReviewRoutes.js";
 import cmsRoutes from "./routes/cmsRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 
+
 dotenv.config();
 
-// ================= APP =================
+// ================= APP + SERVER =================
 const app = express();
 const server = http.createServer(app);
+
+// ================= SOCKET.IO (ENTERPRISE FEATURE) =================
+export const io = new Server(server, {
+  cors: {
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("🔵 Admin connected:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("🔴 Admin disconnected:", socket.id);
+  });
+});
 
 // ================= DB + CLOUD =================
 connectDB();
@@ -33,48 +50,40 @@ connectCloudinary();
 
 const port = process.env.PORT || 4000;
 
-// ================= CORS (FINAL FIX) =================
-const frontendURL = "https://e-commerce-ten-theta-nnci9mrxq7.vercel.app";
+// ================= SWAGGER =================
+let swaggerDocument = {};
+try {
+  swaggerDocument = yaml.load(
+    fs.readFileSync("./promo-api.yaml", "utf8")
+  );
+} catch (error) {
+  console.log("Swagger file not found or invalid");
+}
 
+// ================= MIDDLEWARE =================
 app.use(
   cors({
-    origin: frontendURL,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    origin: ["http://localhost:5173", "http://localhost:5174"],
     credentials: true,
   })
 );
 
-// ================= SOCKET.IO =================
-const io = new Server(server, {
-  cors: {
-    origin: frontendURL,
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-});
-
-io.on("connection", (socket) => {
-  console.log("🔵 User connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("🔴 User disconnected:", socket.id);
-  });
-});
-
-// ================= MIDDLEWARE =================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================= STATIC FILES =================
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// ================= STATIC =================
+app.use(
+  "/uploads",
+  express.static(path.join(path.resolve(), "uploads"))
+);
 
-// ================= LOGGING =================
+// ================= DEBUG LOGGER =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
 });
 
-// ================= API ROUTES =================
+// ================= ROUTES =================
 app.use("/api/product", productRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/cart", cartRouter);
@@ -84,50 +93,31 @@ app.use("/api/admin/reviews", adminReviewRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
-
 // ================= SWAGGER =================
-let swaggerDocument = {};
-try {
-  swaggerDocument = yaml.load(
-    fs.readFileSync("./promo-api.yaml", "utf8")
-  );
-} catch (error) {
-  console.log("⚠ Swagger file not found or invalid");
-}
-
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-// ================= HEALTH CHECK =================
-app.get("/api/health", (req, res) => {
-  res.json({ status: "OK" });
-});
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument)
+);
 
 // ================= HOME =================
 app.get("/", (req, res) => {
-  res.send("🚀 API is running successfully!");
+  res.send("🚀 API is working with REAL-TIME analytics!");
 });
 
-// ================= FRONTEND (REACT BUILD) =================
-const __dirname = path.resolve();
-
-app.use(express.static(path.join(__dirname, "frontend/dist")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "frontend/dist/index.html"));
-});
-
-// ================= ERROR HANDLER =================
+// ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
   console.error("🔥 Server Error:", err);
 
   res.status(500).json({
     success: false,
-    message: err.message || "Server Error",
+    message: err.message || "Something went wrong",
   });
 });
 
 // ================= START SERVER =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-  console.log("⚡ Socket.IO enabled");
+  console.log("⚡ REAL-TIME SOCKET ENABLED");
+  console.log("🔑 Razorpay Key Loaded:", !!process.env.RAZORPAY_KEY_ID);
 });
