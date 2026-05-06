@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { Editor } from "@tinymce/tinymce-react";
+import { backendUrl } from "../config/api";
 
-const API = "http://localhost:4000/api/cms";
 
 const CMSPage = () => {
   const [tab, setTab] = useState("policies");
