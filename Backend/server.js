@@ -21,26 +21,46 @@ import adminReviewRoutes from "./routes/adminReviewRoutes.js";
 import cmsRoutes from "./routes/cmsRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 
-
 dotenv.config();
 
-// ================= APP + SERVER =================
+// ================= APP =================
 const app = express();
 const server = http.createServer(app);
 
-// ================= SOCKET.IO (ENTERPRISE FEATURE) =================
+// ================= ALLOWED ORIGINS =================
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://forever-gamma-eight.vercel.app",
+];
+
+// ================= CORS (EXPRESS) =================
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
+    credentials: true,
+  })
+);
+
+// ================= SOCKET.IO =================
 export const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: allowedOrigins,
     credentials: true,
   },
 });
 
 io.on("connection", (socket) => {
-  console.log("🔵 Admin connected:", socket.id);
+  console.log("🔵 Client connected:", socket.id);
 
   socket.on("disconnect", () => {
-    console.log("🔴 Admin disconnected:", socket.id);
+    console.log("🔴 Client disconnected:", socket.id);
   });
 });
 
@@ -57,27 +77,20 @@ try {
     fs.readFileSync("./promo-api.yaml", "utf8")
   );
 } catch (error) {
-  console.log("Swagger file not found or invalid");
+  console.log("⚠ Swagger file not found");
 }
 
 // ================= MIDDLEWARE =================
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
-    credentials: true,
-  })
-);
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================= STATIC =================
+// ================= STATIC FILES =================
 app.use(
   "/uploads",
   express.static(path.join(path.resolve(), "uploads"))
 );
 
-// ================= DEBUG LOGGER =================
+// ================= REQUEST LOGGER =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
@@ -93,31 +106,31 @@ app.use("/api/admin/reviews", adminReviewRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
-// ================= SWAGGER =================
+
+// ================= SWAGGER DOCS =================
 app.use(
   "/api-docs",
   swaggerUi.serve,
   swaggerUi.setup(swaggerDocument)
 );
 
-// ================= HOME =================
+// ================= TEST ROUTE =================
 app.get("/", (req, res) => {
-  res.send("🚀 API is working with REAL-TIME analytics!");
+  res.send("🚀 Backend is running successfully!");
 });
 
-// ================= GLOBAL ERROR HANDLER =================
+// ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err);
+  console.error("🔥 Error:", err);
 
   res.status(500).json({
     success: false,
-    message: err.message || "Something went wrong",
+    message: err.message || "Server error",
   });
 });
 
 // ================= START SERVER =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-  console.log("⚡ REAL-TIME SOCKET ENABLED");
-  console.log("🔑 Razorpay Key Loaded:", !!process.env.RAZORPAY_KEY_ID);
+  console.log("⚡ Socket.IO enabled");
 });
