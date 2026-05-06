@@ -26,41 +26,43 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// ================= IMPORTANT: TRUST PROXY (RENDER FIX) =================
+app.set("trust proxy", 1);
+
 // ================= ALLOWED ORIGINS =================
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://forever-gamma-eight.vercel.app",
+  "https://forever-admin-ivory-alpha.vercel.app"
 ];
 
-// ================= CORS FIX (PRODUCTION SAFE) =================
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+// ================= CORS (FIXED FOR PRE-FLIGHT + RENDER) =================
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
-      console.log("❌ CORS blocked origin:", origin);
-      return callback(null, false); // IMPORTANT: block unknown origins properly
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+    console.log("❌ Blocked by CORS:", origin);
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 200
+};
 
-// Handle preflight requests
-app.options("*", cors());
+app.use(cors(corsOptions));
+
+// ✅ IMPORTANT: MUST handle preflight BEFORE routes
+app.options("*", cors(corsOptions));
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    credentials: true,
-  },
+  cors: corsOptions
 });
 
 io.on("connection", (socket) => {
@@ -87,14 +89,14 @@ try {
   console.log("⚠ Swagger not loaded");
 }
 
-// ================= MIDDLEWARE =================
+// ================= BODY PARSERS =================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ================= STATIC FILES =================
 app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 
-// ================= LOGGING =================
+// ================= LOGS =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
@@ -111,9 +113,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ================= TEST ROUTE =================
+// ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
-  res.send("🚀 Backend is running successfully!");
+  res.send("🚀 Backend working properly (CORS FIXED)");
 });
 
 // ================= SWAGGER =================
@@ -121,17 +123,16 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 Error:", err);
+  console.error("🔥 Server Error:", err);
 
-  res.setHeader("Access-Control-Allow-Origin", "*"); // 🔥 extra safety
   res.status(500).json({
     success: false,
     message: err.message || "Server error",
   });
 });
 
-// ================= START SERVER =================
+// ================= START =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-  console.log("⚡ Socket.IO enabled");
+  console.log("⚡ CORS FIX ENABLED");
 });
