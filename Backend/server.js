@@ -22,7 +22,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// ================= TRUST PROXY (RENDER FIX) =================
+// ================= TRUST PROXY =================
 app.set("trust proxy", 1);
 
 // ================= ALLOWED ORIGINS =================
@@ -33,29 +33,29 @@ const allowedOrigins = [
   "https://forever-admin-ivory-alpha.vercel.app"
 ];
 
-// ================= CORS (FINAL FIX) =================
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+// ================= CORS FIX =================
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log("❌ BLOCKED ORIGIN:", origin);
-
-      // IMPORTANT: allow anyway (prevents Render crash)
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+    }
 
-// FORCE preflight response
-app.options("*", cors());
+    console.log("❌ BLOCKED ORIGIN:", origin);
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+// Apply CORS
+app.use(cors(corsOptions));
+
+// IMPORTANT: preflight fix
+app.options("*", cors(corsOptions));
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
@@ -92,12 +92,13 @@ app.use("/api/settings", settingsRoutes);
 
 // ================= TEST =================
 app.get("/", (req, res) => {
-  res.send("🚀 Backend working with FULL CORS FIX");
+  res.send("🚀 Backend working with STRICT CORS FIX");
 });
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error("❌ SERVER ERROR:", err.message);
+
   res.status(500).json({
     success: false,
     message: err.message,
