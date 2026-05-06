@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import Title from "../Components/Title";
-const backendUrl = "http://localhost:4000";
+const backendUrl = "https://forver-backend.onrender.com";
 
 const defaultContent = {
   privacy: "We value your privacy...",
