@@ -6,7 +6,6 @@ import { toast } from "react-toastify";
 const List = () => {
   const [list, setList] = useState([]);
 
-  // ================= FETCH PRODUCTS =================
   const fetchList = async () => {
     try {
       const token = localStorage.getItem("adminToken");
@@ -40,14 +39,9 @@ const List = () => {
     fetchList();
   }, []);
 
-  // ================= REMOVE PRODUCT =================
   const removeProduct = async (id) => {
     try {
       const token = localStorage.getItem("adminToken");
-
-      if (!token) {
-        return toast.error("Admin not logged in");
-      }
 
       const response = await axios.post(
         `${backendUrl}/api/product/remove`,
@@ -72,63 +66,69 @@ const List = () => {
   };
 
   return (
-    <>
-      <p className="mb-4 text-lg font-semibold">
+    <div className="p-2">
+
+      <p className="mb-4 text-xl font-bold">
         All Products List
       </p>
 
       <div className="flex flex-col gap-3">
 
-        {/* TABLE HEADER */}
-        <div className="hidden md:grid md:grid-cols-[1fr_2fr_1fr_1fr_1fr] items-center py-2 px-3 border bg-gray-100 text-sm font-semibold">
+        {/* HEADER */}
+        <div className="hidden md:grid grid-cols-[80px_2fr_1fr_1fr_80px] items-center py-3 px-4 border bg-gray-100 text-sm font-semibold rounded">
           <p>Image</p>
           <p>Name</p>
           <p>Category</p>
           <p>Price</p>
-          <p className="text-center">Delete</p>
+          <p className="text-center">Action</p>
         </div>
 
-        {/* PRODUCT LIST */}
-        {list.map((item) => (
-          <div
-            key={item._id}
-            className="grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr_1fr_1fr] gap-3 items-center border p-3 text-sm"
-          >
-            {/* IMAGE */}
-            <img
-              src={
-                item.images?.[0] ||
-                "https://dummyimage.com/60x60/ccc/000.png&text=No+Image"
-              }
-              alt={item.name}
-              className="w-14 h-14 object-cover rounded"
-            />
+        {/* PRODUCTS */}
+        {list.map((item) => {
+          const image =
+            item.images?.[0] ||
+            item.image ||
+            "https://dummyimage.com/80x80/ccc/000.png&text=No+Image";
 
-            {/* NAME */}
-            <p>{item.name}</p>
+          return (
+            <div
+              key={item._id}
+              className="grid grid-cols-[80px_2fr_1fr_1fr_80px] items-center gap-3 border p-3 rounded shadow-sm bg-white"
+            >
 
-            {/* CATEGORY */}
-            <p>{item.category}</p>
+              {/* IMAGE */}
+              <img
+                src={image}
+                alt={item.name}
+                className="w-14 h-14 object-cover rounded border"
+              />
 
-            {/* PRICE */}
-            <p>
-              {currency}
-              {item.price}
-            </p>
+              {/* NAME */}
+              <p className="font-medium">{item.name}</p>
 
-            {/* DELETE */}
-            <div className="text-center">
-              <button
-                onClick={() => removeProduct(item._id)}
-                className="text-red-600 text-lg font-bold"
-              >
-                X
-              </button>
+              {/* CATEGORY */}
+              <p className="text-gray-600">{item.category}</p>
+
+              {/* PRICE */}
+              <p className="font-semibold text-green-600">
+                {currency}{item.price}
+              </p>
+
+              {/* DELETE */}
+              <div className="text-center">
+                <button
+                  onClick={() => removeProduct(item._id)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    </>
+    </div>
   );
 };
 
