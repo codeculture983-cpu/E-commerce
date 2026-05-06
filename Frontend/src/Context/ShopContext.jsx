@@ -10,7 +10,7 @@ export const ShopContext = createContext();
 const ShopContextProvider = ({ children }) => {
   const currency = "$";
   const delivery_fee = 10;
-  const backend_url = "http://localhost:4000";
+  const backend_url = "https://forver-backend.onrender.com";
 
   const [products, setProducts] = useState([]);
   const [cartItems, setCartItems] = useState({});
