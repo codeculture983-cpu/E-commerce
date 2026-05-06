@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { Editor } from "@tinymce/tinymce-react";
-import { backendUrl } from "../config/api";
+const backendUrl = "https://forver-backend.onrender.com";
 
 
 const CMSPage = () => {
