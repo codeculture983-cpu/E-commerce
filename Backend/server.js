@@ -36,7 +36,7 @@ const allowedOrigins = [
   "https://forever-admin-ivory-alpha.vercel.app"
 ];
 
-// ================= CORS (GLOBAL FIX) =================
+// ================= CLEAN CORS (ONLY THIS) =================
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
@@ -45,29 +45,16 @@ app.use(cors({
       return callback(null, true);
     }
 
-    console.log("❌ CORS BLOCKED:", origin);
-
-    // IMPORTANT: DO NOT BREAK REQUEST (Render fix)
-    return callback(null, true);
+    console.log("❌ BLOCKED:", origin);
+    return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// ================= MANUAL PRE-FLIGHT FIX (IMPORTANT) =================
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
+// ================= IMPORTANT: PRE-FLIGHT FIX =================
+app.options("*", cors());
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
@@ -79,7 +66,6 @@ export const io = new Server(server, {
 
 io.on("connection", (socket) => {
   console.log("🔵 Client connected:", socket.id);
-
   socket.on("disconnect", () => {
     console.log("🔴 Client disconnected:", socket.id);
   });
@@ -90,16 +76,6 @@ connectDB();
 connectCloudinary();
 
 const port = process.env.PORT || 4000;
-
-// ================= SWAGGER =================
-let swaggerDocument = {};
-try {
-  swaggerDocument = yaml.load(
-    fs.readFileSync("./promo-api.yaml", "utf8")
-  );
-} catch (err) {
-  console.log("⚠ Swagger not loaded");
-}
 
 // ================= MIDDLEWARE =================
 app.use(express.json());
@@ -127,15 +103,24 @@ app.use("/api/settings", settingsRoutes);
 
 // ================= HEALTH =================
 app.get("/", (req, res) => {
-  res.send("🚀 Backend working fine with FIXED CORS");
+  res.send("🚀 Backend working correctly (CORS FIXED)");
 });
 
 // ================= SWAGGER =================
+let swaggerDocument = {};
+try {
+  swaggerDocument = yaml.load(
+    fs.readFileSync("./promo-api.yaml", "utf8")
+  );
+} catch (err) {
+  console.log("⚠ Swagger not loaded");
+}
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 ERROR:", err);
+  console.error("🔥 ERROR:", err.message);
 
   res.status(500).json({
     success: false,
@@ -146,5 +131,5 @@ app.use((err, req, res, next) => {
 // ================= START =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-  console.log("⚡ CORS FULLY FIXED FOR VERCEL + RENDER");
+  console.log("⚡ CORS FIX ACTIVE");
 });
