@@ -23,7 +23,6 @@ import settingsRoutes from "./routes/settingsRoutes.js";
 
 dotenv.config();
 
-// ================= APP =================
 const app = express();
 const server = http.createServer(app);
 
@@ -34,19 +33,18 @@ const allowedOrigins = [
   "https://forever-gamma-eight.vercel.app",
 ];
 
-// ================= CORS FIX (IMPORTANT) =================
+// ================= CORS FIX (PRODUCTION SAFE) =================
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow tools like postman, server-to-server, swagger
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
-      } else {
-        console.log("❌ Blocked by CORS:", origin);
-        return callback(null, true); // 🔥 SAFE MODE (prevents crash)
       }
+
+      console.log("❌ CORS blocked origin:", origin);
+      return callback(null, false); // IMPORTANT: block unknown origins properly
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -54,7 +52,7 @@ app.use(
   })
 );
 
-// ================= HANDLE PRE-FLIGHT REQUESTS =================
+// Handle preflight requests
 app.options("*", cors());
 
 // ================= SOCKET.IO =================
@@ -85,8 +83,8 @@ try {
   swaggerDocument = yaml.load(
     fs.readFileSync("./promo-api.yaml", "utf8")
   );
-} catch (error) {
-  console.log("⚠ Swagger file not found");
+} catch (err) {
+  console.log("⚠ Swagger not loaded");
 }
 
 // ================= MIDDLEWARE =================
@@ -94,12 +92,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ================= STATIC FILES =================
-app.use(
-  "/uploads",
-  express.static(path.join(path.resolve(), "uploads"))
-);
+app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 
-// ================= LOGGER =================
+// ================= LOGGING =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
@@ -116,29 +111,26 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ================= SWAGGER =================
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerDocument)
-);
-
-// ================= TEST =================
+// ================= TEST ROUTE =================
 app.get("/", (req, res) => {
   res.send("🚀 Backend is running successfully!");
 });
 
+// ================= SWAGGER =================
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err);
+  console.error("🔥 Error:", err);
 
+  res.setHeader("Access-Control-Allow-Origin", "*"); // 🔥 extra safety
   res.status(500).json({
     success: false,
     message: err.message || "Server error",
   });
 });
 
-// ================= START =================
+// ================= START SERVER =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
   console.log("⚡ Socket.IO enabled");
