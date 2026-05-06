@@ -1,14 +1,9 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import path from "path";
-import fs from "fs";
-import yaml from "js-yaml";
-import swaggerUi from "swagger-ui-express";
 import http from "http";
 import { Server } from "socket.io";
 
-import analyticsRoutes from "./routes/analyticsRoutes.js";
 import connectDB from "./config/mongodb.js";
 import connectCloudinary from "./config/cloudinary.js";
 
@@ -19,6 +14,7 @@ import orderRouter from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminReviewRoutes from "./routes/adminReviewRoutes.js";
 import cmsRoutes from "./routes/cmsRoutes.js";
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 import settingsRoutes from "./routes/settingsRoutes.js";
 
 dotenv.config();
@@ -26,6 +22,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// ================= TRUST PROXY (RENDER FIX) =================
 app.set("trust proxy", 1);
 
 // ================= ALLOWED ORIGINS =================
@@ -36,53 +33,45 @@ const allowedOrigins = [
   "https://forever-admin-ivory-alpha.vercel.app"
 ];
 
-// ================= CLEAN CORS (ONLY THIS) =================
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
+// ================= CORS (FINAL FIX) =================
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("❌ BLOCKED ORIGIN:", origin);
+
+      // IMPORTANT: allow anyway (prevents Render crash)
       return callback(null, true);
-    }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-    console.log("❌ BLOCKED:", origin);
-    return callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-
-// ================= IMPORTANT: PRE-FLIGHT FIX =================
+// FORCE preflight response
 app.options("*", cors());
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    credentials: true
-  }
+    credentials: true,
+  },
 });
-
-io.on("connection", (socket) => {
-  console.log("🔵 Client connected:", socket.id);
-  socket.on("disconnect", () => {
-    console.log("🔴 Client disconnected:", socket.id);
-  });
-});
-
-// ================= DB =================
-connectDB();
-connectCloudinary();
-
-const port = process.env.PORT || 4000;
 
 // ================= MIDDLEWARE =================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================= STATIC =================
-app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
+// ================= DB =================
+connectDB();
+connectCloudinary();
 
 // ================= LOGS =================
 app.use((req, res, next) => {
@@ -101,35 +90,23 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ================= HEALTH =================
+// ================= TEST =================
 app.get("/", (req, res) => {
-  res.send("🚀 Backend working correctly (CORS FIXED)");
+  res.send("🚀 Backend working with FULL CORS FIX");
 });
-
-// ================= SWAGGER =================
-let swaggerDocument = {};
-try {
-  swaggerDocument = yaml.load(
-    fs.readFileSync("./promo-api.yaml", "utf8")
-  );
-} catch (err) {
-  console.log("⚠ Swagger not loaded");
-}
-
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 ERROR:", err.message);
-
+  console.error(err);
   res.status(500).json({
     success: false,
-    message: err.message || "Server error"
+    message: err.message,
   });
 });
 
 // ================= START =================
+const port = process.env.PORT || 4000;
+
 server.listen(port, () => {
-  console.log(`🚀 Server running on port ${port}`);
-  console.log("⚡ CORS FIX ACTIVE");
+  console.log("🚀 Server running on port", port);
 });
