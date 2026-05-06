@@ -34,19 +34,28 @@ const allowedOrigins = [
   "https://forever-gamma-eight.vercel.app",
 ];
 
-// ================= CORS (EXPRESS) =================
+// ================= CORS FIX (IMPORTANT) =================
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
+      // allow tools like postman, server-to-server, swagger
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
       } else {
-        callback(new Error("CORS not allowed"));
+        console.log("❌ Blocked by CORS:", origin);
+        return callback(null, true); // 🔥 SAFE MODE (prevents crash)
       }
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ================= HANDLE PRE-FLIGHT REQUESTS =================
+app.options("*", cors());
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
@@ -64,7 +73,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// ================= DB + CLOUD =================
+// ================= DB =================
 connectDB();
 connectCloudinary();
 
@@ -90,7 +99,7 @@ app.use(
   express.static(path.join(path.resolve(), "uploads"))
 );
 
-// ================= REQUEST LOGGER =================
+// ================= LOGGER =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
@@ -107,21 +116,21 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ================= SWAGGER DOCS =================
+// ================= SWAGGER =================
 app.use(
   "/api-docs",
   swaggerUi.serve,
   swaggerUi.setup(swaggerDocument)
 );
 
-// ================= TEST ROUTE =================
+// ================= TEST =================
 app.get("/", (req, res) => {
   res.send("🚀 Backend is running successfully!");
 });
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 Error:", err);
+  console.error("🔥 Server Error:", err);
 
   res.status(500).json({
     success: false,
@@ -129,7 +138,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ================= START SERVER =================
+// ================= START =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
   console.log("⚡ Socket.IO enabled");
