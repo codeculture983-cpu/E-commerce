@@ -2,7 +2,7 @@
 
 import React, { useContext, useEffect, useState } from "react";
 import { ShopContext } from "../Context/ShopContext";
-
+import Title from "../Components/Title";
 const CartTotal = () => {
   const {
     cartItems,
@@ -77,9 +77,7 @@ const CartTotal = () => {
 
   return (
     <div className="border p-4 bg-gray-50 rounded-md">
-      <h3 className="text-lg font-medium mb-4">
-        CART TOTAL
-      </h3>
+      <Title text1={"Cart"} text2={"Total"}/>
 
       {/* SUBTOTAL */}
       <div className="flex justify-between mb-3">
