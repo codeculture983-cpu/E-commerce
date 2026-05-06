@@ -15,35 +15,38 @@ const Verify = () => {
 
   const verifyPayment = async () => {
     try {
-      if (!token) {
-        return null;
-      }
+      if (!token || !orderId) return;
 
       const response = await axios.post(
         backend_url + "/api/order/verifyStripe",
         { success, orderId },
         {
-          headers: { Authorization: `Bearer ${token}` } 
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅ FIXED
+          },
         }
       );
 
       if (response.data.success) {
         setCartItems({});
+        toast.success("Payment Successful 🎉");
         navigate("/orders");
       } else {
+        toast.error("Payment Failed ❌");
         navigate("/cart");
       }
-
     } catch (error) {
-      toast.error(error.message);
+      console.log(error);
+      toast.error(error.response?.data?.message || "Verification failed");
+      navigate("/cart");
     }
   };
 
   useEffect(() => {
-    if (token && success && orderId) {
+    if (orderId && success && token) {
       verifyPayment();
     }
-  }, [token, success, orderId]); 
+  }, [orderId, success, token]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center text-lg">
