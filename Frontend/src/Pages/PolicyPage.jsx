@@ -4,6 +4,8 @@ import { toast } from "react-toastify";
 import Title from "../Components/Title";
 const backendUrl = "https://forver-backend.onrender.com";
 
+
+
 const defaultContent = {
   privacy: "We value your privacy...",
   terms: "Terms and conditions...",
@@ -20,9 +22,7 @@ const PolicyPage = ({ type }) => {
     try {
       setLoading(true);
 
-      const res = await axios.get(
-        `${backendUrl}/api/cms/policy/${type}`
-      );
+      const res = await axios.get(`${backendUrl}/api/cms/policy/${type}`);
 
       if (res.data.success && res.data.policy) {
         setContent(res.data.policy.content);
