@@ -185,19 +185,35 @@ const PlaceOrder = () => {
         <div className="mt-5">
           <Title text1="PAYMENT" text2="METHOD" />
 
-          <div className="flex flex-col gap-3 mt-3">
-            <div onClick={() => setMethod("cod")} className="border p-3 cursor-pointer">
-              Cash on Delivery
-            </div>
+          {/* PAYMENT METHODS */}
+<div className="flex flex-col gap-3 mt-3">
 
-            <div
-              onClick={() => setMethod("stripe")}
-              className="border p-3 cursor-pointer flex items-center gap-2"
-            >
-              <img src={assets.stripe_logo} className="h-5" />
-              Stripe
-            </div>
-          </div>
+  {/* COD */}
+  <div
+    onClick={() => setMethod("cod")}
+    className={`border p-3 cursor-pointer transition-all duration-200
+      ${method === "cod"
+        ? "border-green-500 bg-green-50"
+        : "border-gray-300"
+      }`}
+  >
+    Cash on Delivery
+  </div>
+
+  {/* STRIPE */}
+  <div
+    onClick={() => setMethod("stripe")}
+    className={`border p-3 cursor-pointer flex items-center gap-2 transition-all duration-200
+      ${method === "stripe"
+        ? "border-green-500 bg-green-50"
+        : "border-gray-300"
+      }`}
+  >
+    <img src={assets.stripe_logo} className="h-5" />
+    Stripe
+  </div>
+
+</div>
 
           <button
             type="submit"
