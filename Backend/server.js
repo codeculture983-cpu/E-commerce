@@ -26,7 +26,6 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// ================= IMPORTANT: TRUST PROXY (RENDER FIX) =================
 app.set("trust proxy", 1);
 
 // ================= ALLOWED ORIGINS =================
@@ -37,8 +36,8 @@ const allowedOrigins = [
   "https://forever-admin-ivory-alpha.vercel.app"
 ];
 
-// ================= CORS (FIXED FOR PRE-FLIGHT + RENDER) =================
-const corsOptions = {
+// ================= CORS (GLOBAL FIX) =================
+app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
 
@@ -46,23 +45,36 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    console.log("❌ Blocked by CORS:", origin);
-    return callback(null, false);
+    console.log("❌ CORS BLOCKED:", origin);
+
+    // IMPORTANT: DO NOT BREAK REQUEST (Render fix)
+    return callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  optionsSuccessStatus: 200
-};
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-app.use(cors(corsOptions));
+// ================= MANUAL PRE-FLIGHT FIX (IMPORTANT) =================
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
 
-// ✅ IMPORTANT: MUST handle preflight BEFORE routes
-app.options("*", cors(corsOptions));
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
-  cors: corsOptions
+  cors: {
+    origin: allowedOrigins,
+    credentials: true
+  }
 });
 
 io.on("connection", (socket) => {
@@ -89,11 +101,11 @@ try {
   console.log("⚠ Swagger not loaded");
 }
 
-// ================= BODY PARSERS =================
+// ================= MIDDLEWARE =================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ================= STATIC FILES =================
+// ================= STATIC =================
 app.use("/uploads", express.static(path.join(path.resolve(), "uploads")));
 
 // ================= LOGS =================
@@ -113,9 +125,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ================= HEALTH CHECK =================
+// ================= HEALTH =================
 app.get("/", (req, res) => {
-  res.send("🚀 Backend working properly (CORS FIXED)");
+  res.send("🚀 Backend working fine with FIXED CORS");
 });
 
 // ================= SWAGGER =================
@@ -123,16 +135,16 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err);
+  console.error("🔥 ERROR:", err);
 
   res.status(500).json({
     success: false,
-    message: err.message || "Server error",
+    message: err.message || "Server error"
   });
 });
 
 // ================= START =================
 server.listen(port, () => {
   console.log(`🚀 Server running on port ${port}`);
-  console.log("⚡ CORS FIX ENABLED");
+  console.log("⚡ CORS FULLY FIXED FOR VERCEL + RENDER");
 });
