@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const backendUrl = "http://localhost:4000";
+const backendUrl = "https://forver-backend.onrender.com";
 
 const AdminReviews = () => {
   const [reviews, setReviews] = useState([]);
