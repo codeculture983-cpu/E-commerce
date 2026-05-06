@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 
 const Add = () => {
   // Admin login credentials (you can hardcode or use a login form)
-  const ADMIN_EMAIL = "codeculture983@gmail.com";
+  const ADMIN_EMAIL = "admin12345@gmail.com";
   const ADMIN_PASSWORD = "admin12345";
 
   const [token, setToken] = useState("");
