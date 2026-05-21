@@ -116,7 +116,7 @@ const AnalyticsPage = () => {
       {/* TOP BAR */}
       <div className="sticky top-0 bg-white border-b px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-3">
 
-        <h1 className="text-lg font-bold">📊 ANALYTICS DASHBOARD (COD ONLY)</h1>
+        <h1 className="text-lg font-bold">📊 ANALYTICS DASHBOARD </h1>
 
         <div className="flex flex-wrap gap-2 justify-center">
           {TABS.map((t) => (
