@@ -151,12 +151,12 @@ const AnalyticsPage = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 
           <div className="bg-white p-4 rounded-xl border">
-            <p>REVENUE (COD)</p>
+            <p>REVENUE </p>
             <h2 className="font-bold">{currency}{revenue}</h2>
           </div>
 
           <div className="bg-white p-4 rounded-xl border">
-            <p>CLV (COD)</p>
+            <p>CLV </p>
             <h2 className="font-bold">{currency}{Number(data.clv).toFixed(2)}</h2>
           </div>
 
@@ -170,7 +170,7 @@ const AnalyticsPage = () => {
         {/* ORDERS */}
         {activeTab === "ORDERS" && (
           <div className="bg-white p-5 rounded-xl border">
-            <h3 className="font-semibold mb-4">ORDER ANALYTICS (COD ONLY)</h3>
+            <h3 className="font-semibold mb-4">ORDER ANALYTICS </h3>
 
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               {Object.entries(orders).map(([key, val]) => (
@@ -189,7 +189,7 @@ const AnalyticsPage = () => {
         {/* INSIGHT */}
         {activeTab === "INSIGHT" && (
           <div className="bg-black text-white p-6 rounded-xl space-y-3">
-            <h2 className="font-bold text-lg">AI INSIGHT ENGINE (COD ONLY)</h2>
+            <h2 className="font-bold text-lg">AI INSIGHT ENGINE </h2>
 
             <p>Revenue: {currency}{insightCalc.revenue}</p>
             <p>Orders: {insightCalc.orders}</p>
@@ -212,7 +212,7 @@ const AnalyticsPage = () => {
         {/* FORECAST */}
         {activeTab === "FORECAST" && (
           <div className="bg-white p-5 rounded-xl border">
-            <h3>REVENUE FORECAST (COD ONLY)</h3>
+            <h3>REVENUE FORECAST </h3>
 
             <ResponsiveContainer width="100%" height={250}>
               <BarChart
@@ -233,7 +233,7 @@ const AnalyticsPage = () => {
         {/* PRODUCTS */}
         {activeTab === "PRODUCTS" && (
           <div className="bg-white p-5 rounded-xl border">
-            <h3>PRODUCT SHARE (COD ONLY)</h3>
+            <h3>PRODUCT SHARE </h3>
 
             <ResponsiveContainer width="100%" height={260}>
               <PieChart>
@@ -256,7 +256,7 @@ const AnalyticsPage = () => {
         {/* TOP */}
         {activeTab === "TOP" && (
           <div className="bg-white p-5 rounded-xl border">
-            <h3 className="font-semibold mb-3">🏆 TOP PRODUCTS (COD ONLY)</h3>
+            <h3 className="font-semibold mb-3">🏆 TOP PRODUCTS </h3>
 
             <div className="space-y-3">
               {[...data.products]
