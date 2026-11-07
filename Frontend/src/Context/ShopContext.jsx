@@ -6,6 +6,7 @@ import React, {
   createContext,
   useState,
   useEffect,
+  useRef,
 } from "react";
 
 import axios from "axios";
@@ -41,6 +42,20 @@ const ShopContextProvider = ({ children }) => {
   const [token, setToken] = useState("");
 
   const navigate = useNavigate();
+
+  // Keep cart requests in order.
+  const cartRequestQueue = useRef(Promise.resolve());
+
+  const queueCartRequest = (request) => {
+    const nextRequest = cartRequestQueue.current.then(
+      request,
+      request
+    );
+
+    cartRequestQueue.current = nextRequest.catch(() => {});
+
+    return nextRequest;
+  };
 
   // ----------------- PRODUCT FETCH -----------------
 
@@ -117,7 +132,6 @@ const ShopContextProvider = ({ children }) => {
         );
       }
     } catch (error) {
-      // Do not erase the existing cart if the request fails.
       console.error(
         "Get cart error:",
         error.response?.data || error.message
@@ -234,58 +248,57 @@ const ShopContextProvider = ({ children }) => {
       return;
     }
 
-    // Preserve other products and sizes.
-    const updatedCart = JSON.parse(
-      JSON.stringify(cartItems)
-    );
+    // Immediately update the latest cart state.
+    setCartItems((prev) => {
+      const updatedCart = structuredClone(prev || {});
 
-    if (!updatedCart[itemId]) {
-      updatedCart[itemId] = {};
-    }
+      if (!updatedCart[itemId]) {
+        updatedCart[itemId] = {};
+      }
 
-    updatedCart[itemId][size] =
-      Number(updatedCart[itemId][size] || 0) + 1;
+      updatedCart[itemId][size] =
+        (Number(updatedCart[itemId][size]) || 0) + 1;
 
-    // Update UI immediately.
-    setCartItems(updatedCart);
+      return updatedCart;
+    });
 
-    // Guest user.
+    // Guest cart.
     if (!token) {
       toast.success("Cart updated");
       return;
     }
 
-    // Logged-in user: save to MongoDB.
+    // Logged-in cart: send requests in order.
     try {
-      const res = await axios.post(
-        `${backend_url}/api/cart/add`,
-        {
-          itemId,
-          size,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+      await queueCartRequest(async () => {
+        const res = await axios.post(
+          `${backend_url}/api/cart/add`,
+          {
+            itemId,
+            size,
           },
-        }
-      );
-
-      if (res.data.success) {
-        setCartItems(res.data.cartData || updatedCart);
-        toast.success("Cart updated");
-      } else {
-        toast.error(
-          res.data.message || "Failed to add to cart"
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
-        await getUserCart(token);
-      }
+        if (!res.data.success) {
+          throw new Error(
+            res.data.message || "Failed to add to cart"
+          );
+        }
+      });
+
+      toast.success("Cart updated");
     } catch (error) {
-      console.error("Add to cart error:", error);
+      console.error(
+        "Add to cart error:",
+        error.response?.data || error.message
+      );
 
-      toast.error("Failed to add to cart");
-
-      await getUserCart(token);
+      toast.error("Failed to save cart. Please try again.");
     }
   };
 
@@ -296,15 +309,14 @@ const ShopContextProvider = ({ children }) => {
     size,
     quantity
   ) => {
-    try {
-      quantity = Math.max(0, Number(quantity) || 0);
+    quantity = Math.max(0, Number(quantity) || 0);
 
-      const updatedCart = JSON.parse(
-        JSON.stringify(cartItems)
-      );
+    // Immediately update the UI.
+    setCartItems((prev) => {
+      const updatedCart = structuredClone(prev || {});
 
       if (!updatedCart[itemId]) {
-        updatedCart[itemId] = {};
+        return updatedCart;
       }
 
       if (quantity <= 0) {
@@ -319,75 +331,74 @@ const ShopContextProvider = ({ children }) => {
         updatedCart[itemId][size] = quantity;
       }
 
-      // Update UI immediately.
-      setCartItems(updatedCart);
+      return updatedCart;
+    });
 
-      // Guest cart is saved by the guest-cart effect.
-      if (!token) return;
+    // Guest cart is saved by useEffect.
+    if (!token) return;
 
-      // Save logged-in cart to MongoDB.
-      const response = await axios.post(
-        `${backend_url}/api/cart/update`,
-        {
-          itemId,
-          size,
-          quantity,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+    // Send quantity updates in order.
+    try {
+      await queueCartRequest(async () => {
+        const response = await axios.post(
+          `${backend_url}/api/cart/update`,
+          {
+            itemId,
+            size,
+            quantity,
           },
-        }
-      );
-
-      if (response.data.success) {
-        setCartItems(
-          response.data.cartData || updatedCart
-        );
-      } else {
-        toast.error(
-          response.data.message || "Cart update failed"
-        );
-
-        await getUserCart(token);
-      }
-    } catch (error) {
-      console.error("Update cart error:", error);
-
-      toast.error("Failed to update cart");
-
-      if (token) {
-        await getUserCart(token);
-      }
-    }
-  };
-
-  // ----------------- CLEAR CART -----------------
-
-  const clearCart = async () => {
-    // Clear frontend cart.
-    setCartItems({});
-
-    // Clear guest cart.
-    localStorage.removeItem("guestCart");
-
-    // Clear logged-in user's database cart.
-    if (token) {
-      try {
-        await axios.post(
-          `${backend_url}/api/cart/clear`,
-          {},
           {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           }
         );
+
+        if (!response.data.success) {
+          throw new Error(
+            response.data.message || "Cart update failed"
+          );
+        }
+      });
+    } catch (error) {
+      console.error(
+        "Update cart error:",
+        error.response?.data || error.message
+      );
+
+      toast.error("Failed to update cart. Please try again.");
+    }
+  };
+
+  // ----------------- CLEAR CART -----------------
+
+  const clearCart = async () => {
+    setCartItems({});
+
+    localStorage.removeItem("guestCart");
+
+    if (token) {
+      try {
+        await queueCartRequest(async () => {
+          const response = await axios.post(
+            `${backend_url}/api/cart/clear`,
+            {},
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.data.success) {
+            throw new Error(
+              response.data.message || "Cart clear failed"
+            );
+          }
+        });
       } catch (error) {
-        console.error(
-          "Cart clear failed:",
-          error
-        );
+        console.error("Cart clear failed:", error);
+        toast.error("Could not clear server cart");
       }
     }
   };
