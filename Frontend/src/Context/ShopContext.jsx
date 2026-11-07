@@ -14,7 +14,13 @@ const ShopContextProvider = ({ children }) => {
   import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
   const [products, setProducts] = useState([]);
-  const [cartItems, setCartItems] = useState({});
+  const [cartItems, setCartItems] = useState(() => {
+  try {
+    return JSON.parse(localStorage.getItem("guestCart") || "{}");
+  } catch {
+    return {};
+  }
+});
   const [user, setUser] = useState(null);
   const [token, setToken] = useState("");
 
@@ -127,18 +133,30 @@ const ShopContextProvider = ({ children }) => {
   // ------------------ Cart API ------------------
   const getUserCart = async (userToken = token) => {
     if (!userToken) return setCartItems({});
-    try {
-      const res = await axios.post(
-        `${backend_url}/api/cart/get`,
-        {},
-        { headers: { Authorization: `Bearer ${userToken}` } }
-      );
-      if (res.data.success) setCartItems(res.data.cartData || {});
-      else setCartItems({});
-    } catch (error) {
-      console.error(error);
-      setCartItems({});
+    const getUserCart = async (userToken = token) => {
+  if (!userToken) return;
+
+  try {
+    const res = await axios.post(
+      `${backend_url}/api/cart/get`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+      }
+    );
+
+    if (res.data.success) {
+      setCartItems(res.data.cartData || {});
+    } else {
+      console.error("Could not load server cart:", res.data.message);
     }
+  } catch (error) {
+    // Do not erase the existing cart if the server request fails.
+    console.error("Get cart error:", error.response?.data || error.message);
+  }
+};
   };
 
 const addToCart = async (itemId, size) => {
