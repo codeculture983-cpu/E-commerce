@@ -431,45 +431,81 @@ let otpStore = {};
 import { sendEmail } from "../utils/sendEmail.js";
 
 
+
 export const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = req.body.email?.trim().toLowerCase();
 
-    const user = await userModel.findOne({ email });
-    if (!user) {
-      return res.json({ success: false, message: "User not found" });
+    if (!email || !validator.isEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
     }
 
-    const otp = crypto.randomInt(100000, 999999).toString();
+    const user = await userModel.findOne({ email });
 
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No account found with this email",
+      });
+    }
+
+    // Generate a fresh 6-digit OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
+
+    // Store the new OTP, replacing the previous one
     otpStore[email] = {
       otp,
-      expires: Date.now() + 10 * 60 * 1000,
+      expires: Date.now() + 5 * 60 * 1000,
     };
 
-    // ===== SEND EMAIL =====
     const html = `
-      <div style="font-family:Arial">
-        <h2>Password Reset OTP</h2>
-        <p>Your OTP code is:</p>
-        <h1 style="color:#000">${otp}</h1>
-        <p>This OTP will expire in 10 minutes.</p>
+      <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;padding:25px;border:1px solid #ddd;border-radius:10px;">
+        <h2 style="color:#111;text-align:center;">FOREVER Store</h2>
+        <h3>Password Reset Verification</h3>
+        <p>Hello ${user.name || "Customer"},</p>
+        <p>Use the following OTP to reset your password:</p>
+        <h1 style="text-align:center;letter-spacing:8px;color:#111;">
+          ${otp}
+        </h1>
+        <p>This OTP expires in <b>5 minutes</b>.</p>
+        <p>If you did not request a password reset, please ignore this email.</p>
+        <hr />
+        <p style="color:#777;font-size:12px;">FOREVER Store Security Team</p>
       </div>
     `;
 
-    await sendEmail(email, "Password Reset OTP", html);
+    const emailSent = await sendEmail(
+      email,
+      "FOREVER Store - Password Reset OTP",
+      html
+    );
 
-    res.json({
+    if (!emailSent) {
+      delete otpStore[email];
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to send OTP email. Please try again later.",
+      });
+    }
+
+    return res.json({
       success: true,
-      message: "OTP sent to your email",
+      message: "A new OTP has been sent to your email.",
     });
 
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ success: false });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while sending OTP.",
+    });
   }
 };
-
 // ================= RESET PASSWORD =================
 export const resetPasswordOtp = async (req, res) => {
   try {
