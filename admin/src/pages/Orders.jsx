@@ -1,319 +1,267 @@
-import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
-import { backendUrl } from "../App";
-import { toast } from "react-toastify";
-import dayjs from "dayjs";
 
-const statusFlow = [
+import React, { useEffect, useState, useContext, useCallback } from "react";
+import { ShopContext } from "../Context/ShopContext";
+import axios from "axios";
+import Title from "../Components/Title";
+import { FaEye, FaTimes } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+
+const steps = [
   "Order Placed",
   "Packing",
   "Shipped",
   "Out for Delivery",
   "Delivered",
-  "Cancelled",
 ];
 
-const statusColors = {
-  "Order Placed": "bg-blue-500",
-  Packing: "bg-indigo-500",
-  Shipped: "bg-yellow-500",
-  "Out for Delivery": "bg-orange-500",
-  Delivered: "bg-green-500",
-  Cancelled: "bg-red-500",
-};
+const Orders = () => {
+  const { token, currency, backend_url } = useContext(ShopContext);
 
-const safe = (v) => {
-  if (v === null || v === undefined) return "-";
-  if (typeof v === "object") return JSON.stringify(v);
-  return v;
-};
-
-const Orders = ({ token }) => {
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [openTrack, setOpenTrack] = useState(null);
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [amountFilter, setAmountFilter] = useState("all");
+  const navigate = useNavigate();
 
-  const [page, setPage] = useState(1);
-  const limit = 10;
-
-  // ================= NOTIFICATION MEMORY =================
-  const getSeenOrders = () =>
-    JSON.parse(localStorage.getItem("seenOrders") || "[]");
-
-  const saveSeenOrders = (data) =>
-    localStorage.setItem("seenOrders", JSON.stringify(data));
-
-  // ================= FETCH ORDERS =================
-  const fetchOrders = async () => {
+  // ================= FETCH USER =================
+  const fetchUser = useCallback(async () => {
     try {
-      const res = await axios.get(`${backendUrl}/api/order/list`, {
+      const res = await axios.get(`${backend_url}/api/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const safeOrders = (res.data.orders || []).map((o) => ({
-        ...o,
-        items: Array.isArray(o.items) ? o.items : [],
-      }));
-
-      safeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-      // ================= ONLY TODAY NOTIFICATION =================
-      const today = dayjs().format("YYYY-MM-DD");
-      const seen = getSeenOrders();
-
-      const todayNewOrders = safeOrders.filter(
-        (o) =>
-          dayjs(o.createdAt).format("YYYY-MM-DD") === today &&
-          !seen.includes(o._id)
-      );
-
-      if (todayNewOrders.length > 0) {
-        todayNewOrders.forEach((o) => {
-          toast.success(`🆕 New Order: ${o._id.slice(-6)} ($${o.amount})`);
-        });
-
-        const updatedSeen = [
-          ...seen,
-          ...todayNewOrders.map((o) => o._id),
-        ];
-        saveSeenOrders(updatedSeen);
-      }
-
-      setOrders(safeOrders);
-    } catch {
-      toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
+      setUser(res.data.user);
+    } catch (err) {
+      console.log("Fetch user error:", err);
     }
-  };
+  }, [backend_url, token]);
 
-  useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // ================= FILTER =================
-  const filteredOrders = useMemo(() => {
-    let data = [...orders];
-
-    if (search) {
-      data = data.filter((o) =>
-        o._id.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== "all") {
-      data = data.filter((o) => o.status === statusFilter);
-    }
-
-    if (amountFilter === "high") data.sort((a, b) => b.amount - a.amount);
-    if (amountFilter === "low") data.sort((a, b) => a.amount - b.amount);
-
-    return data;
-  }, [orders, search, statusFilter, amountFilter]);
-
-  const totalPages = Math.ceil(filteredOrders.length / limit);
-
-  const paginatedOrders = useMemo(() => {
-    const start = (page - 1) * limit;
-    return filteredOrders.slice(start, start + limit);
-  }, [filteredOrders, page]);
-
-  // ================= UPDATE STATUS =================
-  const updateStatus = async (id, status) => {
+  // ================= FETCH ORDERS =================
+  const fetchOrders = useCallback(async () => {
     try {
-      await axios.put(
-        `${backendUrl}/api/order/${id}/status`,
-        { status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setOrders((prev) =>
-        prev.map((o) => (o._id === id ? { ...o, status } : o))
-      );
-
-      toast.success("Updated");
-    } catch {
-      toast.error("Update failed");
-    }
-  };
-
-  // ================= DOWNLOAD INVOICE =================
-  const downloadInvoice = async (order) => {
-    try {
-      const response = await axios.get(
-        `${backendUrl}/api/order/invoice/${order._id}`,
+      const res = await axios.get(
+        `${backend_url}/api/order/userorders`,
         {
-          responseType: "blob",
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      const blob = new Blob([response.data], {
-        type: "application/pdf",
-      });
+      if (res.data.success) {
+        const updatedOrders = [...(res.data.orders || [])].sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
 
-      const url = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `invoice-${order._id}.pdf`;
-      link.click();
-
-      window.URL.revokeObjectURL(url);
-    } catch {
-      toast.error("PDF download failed");
+        setOrders(updatedOrders);
+      }
+    } catch (error) {
+      console.log("Fetch orders error:", error);
     }
+  }, [backend_url, token]);
+
+  // ================= INITIAL LOAD + AUTO REFRESH =================
+  useEffect(() => {
+    if (!token) {
+      setOrders([]);
+      setUser(null);
+      return;
+    }
+
+    fetchUser();
+    fetchOrders();
+
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [token, fetchUser, fetchOrders]);
+
+  // ================= STEP =================
+  const getStep = (status) => {
+    if (status === "Cancelled") return -1;
+    return steps.indexOf(status);
   };
 
-  if (loading)
-    return <div className="p-6">Loading enterprise dashboard...</div>;
+  // ================= TRACK TOGGLE =================
+  const toggleTrack = (id) => {
+    setOpenTrack((prev) => (prev === id ? null : id));
+  };
+
+  // Tracking OFF = hide tracking UI
+  const trackingEnabled = user?.privacy?.activityTracking !== false;
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gray-100 min-h-screen">
+    <div className="max-w-5xl mx-auto p-4">
 
-      {/* HEADER */}
-      <div className="flex flex-col lg:flex-row justify-between gap-3 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold">📦 Enterprise Orders</h1>
+      <Title text1="MY" text2="ORDERS" />
 
-        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full lg:w-auto">
+      {orders.length === 0 && (
+        <p className="text-center text-gray-500 mt-10">
+          No orders found
+        </p>
+      )}
 
-          <input
-            className="p-2 border rounded w-full sm:w-auto"
-            placeholder="Search Order ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {orders.map((order) => {
+        const cancelled = order.status === "Cancelled";
+        const currentStep = getStep(order.status);
 
-          <select
-            className="p-2 border rounded w-full sm:w-auto"
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            {statusFlow.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
+        return (
+          <div key={order._id} className="border p-5 rounded-xl mb-6">
 
-          <select
-            className="p-2 border rounded w-full sm:w-auto"
-            onChange={(e) => setAmountFilter(e.target.value)}
-          >
-            <option value="all">Sort Amount</option>
-            <option value="high">High → Low</option>
-            <option value="low">Low → High</option>
-          </select>
+            {/* HEADER */}
+            <div className="flex flex-col sm:flex-row justify-between gap-2 border-b pb-2">
+              <p className="text-sm text-gray-600 break-all">
+                ORDER ID: #{order._id}
+              </p>
 
-        </div>
-      </div>
-
-      {/* ORDERS */}
-      <div className="grid gap-4 sm:gap-6">
-
-        {paginatedOrders.map((o) => (
-          <div key={o._id} className="bg-white p-3 sm:p-5 rounded-xl shadow-md">
-
-            <div className="flex flex-col sm:flex-row sm:justify-between gap-2 border-b pb-3">
-
-              <div className="text-sm sm:text-base">
-                <p className="text-gray-500">Order ID</p>
-                <p className="font-bold break-all">{safe(o._id)}</p>
-                <p>Total: <b>${safe(o.amount)}</b></p>
-              </div>
-
-              <span className={`px-3 py-1 text-white rounded w-fit ${statusColors[o.status]}`}>
-                {o.status}
-              </span>
-
-            </div>
-
-            {/* ACTIONS */}
-            <div className="flex flex-col sm:flex-row gap-2 mt-4">
-
-              <select
-                className="border p-2 rounded w-full sm:w-auto"
-                value={o.status}
-                onChange={(e) => updateStatus(o._id, e.target.value)}
-              >
-                {statusFlow.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-
-              {/* ✅ DOWNLOAD INVOICE BUTTON */}
-              <button
-                onClick={() => downloadInvoice(o)}
-                className="bg-black text-white px-4 py-2 rounded w-full sm:w-auto"
-              >
-                Download Invoice
-              </button>
-
+              <p className="font-bold">
+                {currency} {Number(order.amount || 0).toFixed(2)}
+              </p>
             </div>
 
             {/* ITEMS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-4">
+            {order.items?.map((item, i) => {
+              const snap = item.snapshot || {};
 
-              {o.items.map((item, i) => {
-                const snap = item.snapshot || {};
+              return (
+                <div key={i} className="flex gap-4 mt-4">
 
-                return (
-                  <div key={i} className="flex gap-3 p-3 border rounded bg-gray-50">
+                  <img
+                    src={
+                      snap.image?.trim()
+                        ? snap.image
+                        : "/placeholder.png"
+                    }
+                    alt={snap.name || "Product"}
+                    className="w-20 h-20 object-cover rounded border"
+                  />
 
-                    <img
-                      src={
-                        snap.image && snap.image.startsWith("http")
-                          ? snap.image
-                          : "https://via.placeholder.com/80"
-                      }
-                      className="w-14 h-14 object-cover rounded"
-                      alt=""
-                    />
+                  <div className="flex justify-between w-full gap-2">
 
-                    <div className="text-sm">
-                      <p className="font-medium">{safe(snap.name)}</p>
-                      <p>Qty: {safe(item.quantity)}</p>
-                      <p className="font-bold">${safe(snap.price)}</p>
+                    <div>
+                      <p className="font-semibold">
+                        {snap.name || "Product"}
+                      </p>
+
+                      <p className="text-sm text-gray-500">
+                        Size: {snap.size || "-"}
+                      </p>
+
+                      <p className="text-sm">
+                        Qty: {item.quantity}
+                      </p>
                     </div>
 
+                    <p className="font-semibold whitespace-nowrap">
+                      {currency}
+                      {(
+                        Number(snap.price || 0) *
+                        Number(item.quantity || 0)
+                      ).toFixed(2)}
+                    </p>
+
                   </div>
-                );
-              })}
+                </div>
+              );
+            })}
+
+            {/* CURRENT STATUS */}
+            <div className="mt-4">
+              <p className="text-sm">
+                Order Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    cancelled ? "text-red-600" : "text-green-600"
+                  }`}
+                >
+                  {order.status || "Order Placed"}
+                </span>
+              </p>
+            </div>
+
+            {/* ACTIONS */}
+            <div className="flex flex-wrap gap-4 mt-4">
+
+              {/* TRACK BUTTON */}
+              {trackingEnabled && (
+                <button
+                  onClick={() => toggleTrack(order._id)}
+                  className="text-blue-600 flex items-center gap-1"
+                >
+                  <FaEye />
+                  {openTrack === order._id ? "Hide Tracking" : "Track Order"}
+                </button>
+              )}
+
+              {/* DETAILS */}
+              <button
+                onClick={() => navigate(`/order/${order._id}`)}
+                className="text-green-600"
+              >
+                Details
+              </button>
+
+              {/* CANCEL */}
+              {order.status === "Order Placed" && (
+                <button
+                  type="button"
+                  disabled
+                  title="Order cancellation is not connected yet"
+                  className="text-red-400 flex items-center gap-1 cursor-not-allowed"
+                >
+                  <FaTimes /> Cancel
+                </button>
+              )}
 
             </div>
 
+            {/* TRACKING TIMELINE */}
+            {trackingEnabled && openTrack === order._id && (
+              <div className="mt-5 border-t pt-4">
+
+                <h3 className="font-semibold mb-3">
+                  Order Tracking
+                </h3>
+
+                {cancelled ? (
+                  <p className="text-red-600 font-semibold">
+                    ✕ This order has been cancelled.
+                  </p>
+                ) : (
+                  <div className="flex justify-between gap-1">
+
+                    {steps.map((step, index) => {
+                      const active = index <= currentStep;
+
+                      return (
+                        <div
+                          key={step}
+                          className="text-center flex-1 min-w-0"
+                        >
+                          <div
+                            className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-white text-xs ${
+                              active ? "bg-green-500" : "bg-gray-300"
+                            }`}
+                          >
+                            {index + 1}
+                          </div>
+
+                          <p className="text-[10px] sm:text-xs mt-2">
+                            {step}
+                          </p>
+                        </div>
+                      );
+                    })}
+
+                  </div>
+                )}
+
+              </div>
+            )}
+
           </div>
-        ))}
-
-      </div>
-
-      {/* PAGINATION */}
-      <div className="flex flex-col sm:flex-row justify-center items-center mt-6 gap-2">
-
-        <button
-          className="px-3 py-1 bg-gray-300 rounded w-full sm:w-auto"
-          disabled={page === 1}
-          onClick={() => setPage(page - 1)}
-        >
-          Prev
-        </button>
-
-        <span className="px-3 py-1">
-          {page} / {totalPages || 1}
-        </span>
-
-        <button
-          className="px-3 py-1 bg-gray-300 rounded w-full sm:w-auto"
-          disabled={page === totalPages}
-          onClick={() => setPage(page + 1)}
-        >
-          Next
-        </button>
-
-      </div>
+        );
+      })}
 
     </div>
   );
