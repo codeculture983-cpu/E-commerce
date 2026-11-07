@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { ShopContext } from "../Context/ShopContext";
@@ -13,7 +14,7 @@ const Login = () => {
 
   useEffect(() => {
     if (token) navigate("/");
-  }, [token]);
+  }, [token, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +32,9 @@ const Login = () => {
         onSubmit={handleSubmit}
         className="flex flex-col w-[90%] sm:max-w-96 gap-4 border p-6 rounded-lg shadow"
       >
-        <h1 className="text-3xl font-semibold text-center">Login</h1>
+        <h1 className="text-3xl font-semibold text-center">
+          Login
+        </h1>
 
         {/* Email */}
         <input
@@ -53,6 +56,7 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+
           <span
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-2.5 cursor-pointer"
@@ -66,12 +70,8 @@ const Login = () => {
           Login
         </button>
 
-        {/* Links */}
-        <div className="flex justify-between text-sm mt-2">
-          <Link to="/forgot-password" className="text-blue-600">
-            Forgot Password?
-          </Link>
-
+        {/* Create Account */}
+        <div className="flex justify-end text-sm mt-2">
           <Link to="/signup" className="text-green-600">
             Create Account
           </Link>
