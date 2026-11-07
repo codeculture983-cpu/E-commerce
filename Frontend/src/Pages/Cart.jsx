@@ -1,6 +1,5 @@
 
-/* eslint-disable react-hooks/exhaustive-deps */
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useMemo } from "react";
 import { ShopContext } from "../Context/ShopContext";
 import { assets } from "../assets/assets";
 import CartTotal from "../Components/CartTotal";
@@ -16,21 +15,44 @@ const Cart = () => {
     navigate,
   } = useContext(ShopContext);
 
-  const [cartData, setCartData] = useState([]);
+  // Convert cart object into separate product-size rows
+  const cartData = useMemo(() => {
+    const items = [];
 
-  // Get final product price
+    if (!cartItems || typeof cartItems !== "object") {
+      return items;
+    }
+
+    Object.entries(cartItems).forEach(([itemId, sizes]) => {
+      if (!sizes || typeof sizes !== "object") return;
+
+      Object.entries(sizes).forEach(([size, quantity]) => {
+        const qty = Number(quantity);
+
+        if (qty > 0) {
+          items.push({
+            _id: itemId,
+            size,
+            quantity: qty,
+          });
+        }
+      });
+    });
+
+    return items;
+  }, [cartItems]);
+
+  // Final price
   const getFinalPrice = (product) => {
     const originalPrice = Number(product.price || 0);
     const discountPrice = Number(product.discountPrice || 0);
 
-    if (discountPrice > 0 && discountPrice < originalPrice) {
-      return discountPrice;
-    }
-
-    return originalPrice;
+    return discountPrice > 0 && discountPrice < originalPrice
+      ? discountPrice
+      : originalPrice;
   };
 
-  // Get discount percentage
+  // Discount percentage
   const getDiscountPercent = (product) => {
     const originalPrice = Number(product.price || 0);
     const discountPrice = Number(product.discountPrice || 0);
@@ -44,38 +66,11 @@ const Cart = () => {
     return 0;
   };
 
-  // Convert cart object into UI array
-  useEffect(() => {
-    const tempData = [];
-
-    for (const itemId in cartItems) {
-      for (const size in cartItems[itemId]) {
-        const quantity = Number(cartItems[itemId][size]);
-
-        if (quantity > 0) {
-          tempData.push({
-            _id: itemId,
-            size,
-            quantity,
-          });
-        }
-      }
-    }
-
-    setCartData(tempData);
-  }, [cartItems]);
-
-  // Save guest cart whenever it changes
-  // Logged-in cart is saved by the backend
-  useEffect(() => {
-    // Guest cart persistence is handled globally in ShopContext.
-  }, []);
-
   // Update quantity
   const handleUpdateQuantity = async (itemId, size, quantity) => {
-    const newQuantity = Math.max(0, Number(quantity) || 0);
+    const newQuantity = Math.max(0, Math.floor(Number(quantity) || 0));
 
-    if (cartItems[itemId]?.[size] === newQuantity) return;
+    if (Number(cartItems[itemId]?.[size]) === newQuantity) return;
 
     await updateQuantity(itemId, size, newQuantity);
 
@@ -86,7 +81,7 @@ const Cart = () => {
     }
   };
 
-  // Remove item
+  // Remove only selected size
   const handleRemoveItem = async (itemId, size) => {
     await handleUpdateQuantity(itemId, size, 0);
   };
@@ -109,7 +104,7 @@ const Cart = () => {
       <div>
         {cartData.map((item) => {
           const productData = products.find(
-            (product) => product._id === item._id
+            (product) => String(product._id) === String(item._id)
           );
 
           if (!productData) return null;
@@ -167,8 +162,9 @@ const Cart = () => {
                       </p>
                     )}
 
+                    {/* SIZE */}
                     <p className="px-2 sm:px-3 sm:py-1 border bg-slate-50 inline-block mt-2">
-                      {item.size}
+                      Size: {item.size}
                     </p>
                   </div>
                 </div>
@@ -178,13 +174,14 @@ const Cart = () => {
               <input
                 type="number"
                 min={1}
+                step={1}
                 className="border max-w-10 sm:max-w-20 px-1 sm:px-2 py-1"
                 value={item.quantity}
                 onChange={(e) =>
                   handleUpdateQuantity(
                     item._id,
                     item.size,
-                    Number(e.target.value)
+                    e.target.value
                   )
                 }
               />
@@ -209,6 +206,7 @@ const Cart = () => {
 
             <div className="w-full text-end">
               <button
+                type="button"
                 onClick={() => navigate("/placeorder")}
                 className="bg-black text-white text-sm my-8 px-8 py-3"
               >
