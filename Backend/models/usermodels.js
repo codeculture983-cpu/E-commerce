@@ -18,10 +18,10 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
 
     cartData: {
-      type: Map,
-      of: Object,
-      default: new Map(),
-    },
+  type: Map,
+  of: Object,
+  default: new Map(),
+},
 
     // ================= ENTERPRISE V3 =================
     addresses: [addressSchema],
