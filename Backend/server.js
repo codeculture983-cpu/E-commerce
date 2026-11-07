@@ -1,3 +1,4 @@
+```js
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -28,8 +29,15 @@ app.set("trust proxy", 1);
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
+
+  // Customer website
   "https://forever-gamma-eight.vercel.app",
+
+  // Admin website
   "https://forever-admin-ivory-alpha.vercel.app",
+
+  // Additional Vercel deployment URL
+  "https://forever-bclze8n2l-codeculture983-cpus-projects.vercel.app",
 ];
 
 // ================= CORS CONFIGURATION =================
@@ -104,3 +112,4 @@ const port = process.env.PORT || 4000;
 server.listen(port, () => {
   console.log(`🚀 FOREVER server running on port ${port}`);
 });
+```
