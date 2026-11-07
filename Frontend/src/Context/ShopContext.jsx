@@ -23,7 +23,7 @@ const ShopContextProvider = ({ children }) => {
     import.meta.env.VITE_BACKEND_URL ||
     "http://localhost:4000";
 
-  // ----------------- STATES -----------------
+  // ---------------- STATES ----------------
 
   const [products, setProducts] = useState([]);
 
@@ -43,9 +43,12 @@ const ShopContextProvider = ({ children }) => {
 
   const navigate = useNavigate();
 
-  // Keep cart requests in order.
-  const cartRequestQueue = useRef(Promise.resolve());
+  // ---------------- CART REQUEST CONTROL ----------------
 
+  const cartRequestQueue = useRef(Promise.resolve());
+  const cartSessionRef = useRef(0);
+
+  // Run cart requests one after another.
   const queueCartRequest = (request) => {
     const nextRequest = cartRequestQueue.current.then(
       request,
@@ -57,7 +60,7 @@ const ShopContextProvider = ({ children }) => {
     return nextRequest;
   };
 
-  // ----------------- PRODUCT FETCH -----------------
+  // ---------------- PRODUCTS ----------------
 
   const fetchProducts = async () => {
     try {
@@ -78,7 +81,7 @@ const ShopContextProvider = ({ children }) => {
     }
   };
 
-  // ----------------- USER DATA -----------------
+  // ---------------- USER DATA ----------------
 
   const getUserData = async (userToken = token) => {
     if (!userToken) {
@@ -107,30 +110,38 @@ const ShopContextProvider = ({ children }) => {
     }
   };
 
-  // ----------------- GET USER CART -----------------
+  // ---------------- GET USER CART ----------------
 
   const getUserCart = async (userToken = token) => {
     if (!userToken) return;
 
-    try {
-      const res = await axios.post(
-        `${backend_url}/api/cart/get`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${userToken}`,
-          },
-        }
-      );
+    const currentSession = cartSessionRef.current;
 
-      if (res.data.success) {
-        setCartItems(res.data.cartData || {});
-      } else {
-        console.error(
-          "Could not load cart:",
-          res.data.message
+    try {
+      // IMPORTANT:
+      // Cart loading uses the same queue as add/update requests.
+      // An older response cannot overwrite a newer cart update.
+      await queueCartRequest(async () => {
+        const res = await axios.post(
+          `${backend_url}/api/cart/get`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${userToken}`,
+            },
+          }
         );
-      }
+
+        if (!res.data.success) {
+          throw new Error(
+            res.data.message || "Could not load cart"
+          );
+        }
+
+        if (currentSession === cartSessionRef.current) {
+          setCartItems(res.data.cartData || {});
+        }
+      });
     } catch (error) {
       console.error(
         "Get cart error:",
@@ -139,7 +150,7 @@ const ShopContextProvider = ({ children }) => {
     }
   };
 
-  // ----------------- LOGIN -----------------
+  // ---------------- LOGIN ----------------
 
   const login = async (email, password) => {
     try {
@@ -154,19 +165,20 @@ const ShopContextProvider = ({ children }) => {
       if (res.data.success) {
         const userToken = res.data.token;
 
+        // Start a new cart session.
+        cartSessionRef.current += 1;
+
         localStorage.setItem("token", userToken);
 
         setToken(userToken);
 
-        axios.defaults.headers.common[
-          "Authorization"
-        ] = `Bearer ${userToken}`;
+        axios.defaults.headers.common.Authorization =
+          `Bearer ${userToken}`;
 
         await getUserData(userToken);
         await getUserCart(userToken);
 
         toast.success("Login successful");
-
         navigate("/");
       } else {
         toast.error(
@@ -182,25 +194,25 @@ const ShopContextProvider = ({ children }) => {
     }
   };
 
-  // ----------------- LOGOUT -----------------
+  // ---------------- LOGOUT ----------------
 
   const logout = () => {
+    // Ignore responses from the previous login session.
+    cartSessionRef.current += 1;
+
     localStorage.removeItem("token");
 
-    delete axios.defaults.headers.common[
-      "Authorization"
-    ];
+    delete axios.defaults.headers.common.Authorization;
 
     setToken("");
     setUser(null);
     setCartItems({});
 
     navigate("/login");
-
     toast.info("Logged out");
   };
 
-  // ----------------- CART COUNT -----------------
+  // ---------------- CART COUNT ----------------
 
   const getCartCount = () => {
     return Object.values(cartItems).reduce(
@@ -218,14 +230,14 @@ const ShopContextProvider = ({ children }) => {
     );
   };
 
-  // ----------------- CART AMOUNT -----------------
+  // ---------------- CART AMOUNT ----------------
 
   const getCartAmount = () => {
     let total = 0;
 
     for (const itemId in cartItems) {
       const product = products.find(
-        (item) => item._id === itemId
+        (item) => String(item._id) === String(itemId)
       );
 
       if (!product) continue;
@@ -240,7 +252,7 @@ const ShopContextProvider = ({ children }) => {
     return total;
   };
 
-  // ----------------- ADD TO CART -----------------
+  // ---------------- ADD TO CART ----------------
 
   const addToCart = async (itemId, size) => {
     if (!size) {
@@ -248,7 +260,10 @@ const ShopContextProvider = ({ children }) => {
       return;
     }
 
-    // Immediately update the latest cart state.
+    const selectedToken = token;
+    const currentSession = cartSessionRef.current;
+
+    // Update the UI immediately.
     setCartItems((prev) => {
       const updatedCart = structuredClone(prev || {});
 
@@ -262,13 +277,12 @@ const ShopContextProvider = ({ children }) => {
       return updatedCart;
     });
 
-    // Guest cart.
-    if (!token) {
+    // Guest cart is stored locally.
+    if (!selectedToken) {
       toast.success("Cart updated");
       return;
     }
 
-    // Logged-in cart: send requests in order.
     try {
       await queueCartRequest(async () => {
         const res = await axios.post(
@@ -279,15 +293,20 @@ const ShopContextProvider = ({ children }) => {
           },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${selectedToken}`,
             },
           }
         );
 
         if (!res.data.success) {
           throw new Error(
-            res.data.message || "Failed to add to cart"
+            res.data.message || "Failed to add item"
           );
+        }
+
+        // Use the latest server cart only in this session.
+        if (currentSession === cartSessionRef.current) {
+          setCartItems(res.data.cartData || {});
         }
       });
 
@@ -299,19 +318,28 @@ const ShopContextProvider = ({ children }) => {
       );
 
       toast.error("Failed to save cart. Please try again.");
+
+      // Reload the actual server cart after a failed request.
+      await getUserCart(selectedToken);
     }
   };
 
-  // ----------------- UPDATE QUANTITY -----------------
+  // ---------------- UPDATE QUANTITY ----------------
 
   const updateQuantity = async (
     itemId,
     size,
     quantity
   ) => {
-    quantity = Math.max(0, Number(quantity) || 0);
+    const newQuantity = Math.max(
+      0,
+      Math.floor(Number(quantity) || 0)
+    );
 
-    // Immediately update the UI.
+    const selectedToken = token;
+    const currentSession = cartSessionRef.current;
+
+    // Update UI immediately.
     setCartItems((prev) => {
       const updatedCart = structuredClone(prev || {});
 
@@ -319,7 +347,7 @@ const ShopContextProvider = ({ children }) => {
         return updatedCart;
       }
 
-      if (quantity <= 0) {
+      if (newQuantity === 0) {
         delete updatedCart[itemId][size];
 
         if (
@@ -328,36 +356,39 @@ const ShopContextProvider = ({ children }) => {
           delete updatedCart[itemId];
         }
       } else {
-        updatedCart[itemId][size] = quantity;
+        updatedCart[itemId][size] = newQuantity;
       }
 
       return updatedCart;
     });
 
-    // Guest cart is saved by useEffect.
-    if (!token) return;
+    // Guest cart is saved by the effect below.
+    if (!selectedToken) return;
 
-    // Send quantity updates in order.
     try {
       await queueCartRequest(async () => {
-        const response = await axios.post(
+        const res = await axios.post(
           `${backend_url}/api/cart/update`,
           {
             itemId,
             size,
-            quantity,
+            quantity: newQuantity,
           },
           {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${selectedToken}`,
             },
           }
         );
 
-        if (!response.data.success) {
+        if (!res.data.success) {
           throw new Error(
-            response.data.message || "Cart update failed"
+            res.data.message || "Cart update failed"
           );
+        }
+
+        if (currentSession === cartSessionRef.current) {
+          setCartItems(res.data.cartData || {});
         }
       });
     } catch (error) {
@@ -367,48 +398,55 @@ const ShopContextProvider = ({ children }) => {
       );
 
       toast.error("Failed to update cart. Please try again.");
+
+      await getUserCart(selectedToken);
     }
   };
 
-  // ----------------- CLEAR CART -----------------
+  // ---------------- CLEAR CART ----------------
 
   const clearCart = async () => {
-    setCartItems({});
+    const selectedToken = token;
+    const currentSession = cartSessionRef.current;
 
+    setCartItems({});
     localStorage.removeItem("guestCart");
 
-    if (token) {
-      try {
-        await queueCartRequest(async () => {
-          const response = await axios.post(
-            `${backend_url}/api/cart/clear`,
-            {},
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+    if (!selectedToken) return;
 
-          if (!response.data.success) {
-            throw new Error(
-              response.data.message || "Cart clear failed"
-            );
+    try {
+      await queueCartRequest(async () => {
+        const res = await axios.post(
+          `${backend_url}/api/cart/clear`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${selectedToken}`,
+            },
           }
-        });
-      } catch (error) {
-        console.error("Cart clear failed:", error);
-        toast.error("Could not clear server cart");
-      }
+        );
+
+        if (!res.data.success) {
+          throw new Error(
+            res.data.message || "Cart clear failed"
+          );
+        }
+
+        if (currentSession === cartSessionRef.current) {
+          setCartItems({});
+        }
+      });
+    } catch (error) {
+      console.error("Cart clear error:", error);
+      toast.error("Could not clear server cart");
+
+      await getUserCart(selectedToken);
     }
   };
 
-  // ----------------- REVIEWS -----------------
+  // ---------------- REVIEWS ----------------
 
-  const submitReview = async (
-    productId,
-    reviewData
-  ) => {
+  const submitReview = async (productId, reviewData) => {
     if (!token) {
       toast.error("Login required");
       return null;
@@ -439,14 +477,12 @@ const ShopContextProvider = ({ children }) => {
       return null;
     } catch (error) {
       console.error("Review error:", error);
-
       toast.error("Failed to submit review");
-
       return null;
     }
   };
 
-  // ----------------- SAVE GUEST CART -----------------
+  // ---------------- SAVE GUEST CART ----------------
 
   useEffect(() => {
     if (!token) {
@@ -457,7 +493,7 @@ const ShopContextProvider = ({ children }) => {
     }
   }, [cartItems, token]);
 
-  // ----------------- INITIAL LOAD -----------------
+  // ---------------- INITIAL LOAD ----------------
 
   useEffect(() => {
     fetchProducts();
@@ -465,18 +501,19 @@ const ShopContextProvider = ({ children }) => {
     const savedToken = localStorage.getItem("token");
 
     if (savedToken) {
+      cartSessionRef.current += 1;
+
       setToken(savedToken);
 
-      axios.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${savedToken}`;
+      axios.defaults.headers.common.Authorization =
+        `Bearer ${savedToken}`;
 
       getUserData(savedToken);
       getUserCart(savedToken);
     }
   }, []);
 
-  // ----------------- CONTEXT PROVIDER -----------------
+  // ---------------- PROVIDER ----------------
 
   return (
     <ShopContext.Provider
