@@ -141,26 +141,53 @@ const ShopContextProvider = ({ children }) => {
     }
   };
 
-  const addToCart = async (itemId, size) => {
-    if (!size) return toast.error("Select a size");
-    const updatedCart = structuredClone(cartItems);
-    if (updatedCart[itemId]) updatedCart[itemId][size] = (updatedCart[itemId][size] || 0) + 1;
-    else updatedCart[itemId] = { [size]: 1 };
-    setCartItems(updatedCart);
+const addToCart = async (itemId, size) => {
+  if (!size) {
+    return toast.error("Select a size");
+  }
 
-    if (token) {
-      try {
-        const res = await axios.post(
-          `${backend_url}/api/cart/add`,
-          { itemId, size },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.data.success) setCartItems(res.data.cartData);
-      } catch {
-        toast.error("Failed to add to cart");
+  const updatedCart = structuredClone(cartItems);
+
+  if (updatedCart[itemId]) {
+    updatedCart[itemId][size] =
+      (updatedCart[itemId][size] || 0) + 1;
+  } else {
+    updatedCart[itemId] = { [size]: 1 };
+  }
+
+  // Update cart immediately
+  setCartItems(updatedCart);
+
+  // Guest user
+  if (!token) {
+    toast.success("Cart updated");
+    return;
+  }
+
+  // Logged-in user
+  try {
+    const res = await axios.post(
+      `${backend_url}/api/cart/add`,
+      { itemId, size },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
+    );
+
+    if (res.data.success) {
+      setCartItems(res.data.cartData || updatedCart);
+      toast.success("Cart updated");
+    } else {
+      toast.error(res.data.message || "Failed to add to cart");
     }
-  };
+  } catch (error) {
+    console.error("Add to cart error:", error);
+    toast.error("Failed to add to cart");
+  }
+};
+
 
  const updateQuantity = async (itemId, size, quantity) => {
   try {
