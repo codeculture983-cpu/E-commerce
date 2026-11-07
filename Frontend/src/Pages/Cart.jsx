@@ -1,6 +1,4 @@
 
-
-```jsx
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useContext, useEffect, useState } from "react";
 import { ShopContext } from "../Context/ShopContext";
@@ -225,4 +223,3 @@ const Cart = () => {
 };
 
 export default Cart;
-```
