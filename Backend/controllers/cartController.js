@@ -2,22 +2,36 @@
 import mongoose from "mongoose";
 import { userModel } from "../models/usermodels.js";
 
-// Convert Mongoose Map or normal object into a plain object.
+// Convert cart data into a normal JavaScript object.
 const normalizeCartData = (cartData) => {
   if (!cartData) return {};
 
   if (cartData instanceof Map) {
-    return Object.fromEntries(cartData);
+    return Object.fromEntries(
+      Array.from(cartData.entries()).map(([itemId, sizes]) => [
+        itemId,
+        sizes instanceof Map
+          ? Object.fromEntries(sizes)
+          : { ...(sizes || {}) },
+      ])
+    );
   }
 
   if (typeof cartData === "object") {
-    return cartData;
+    return Object.fromEntries(
+      Object.entries(cartData).map(([itemId, sizes]) => [
+        itemId,
+        sizes instanceof Map
+          ? Object.fromEntries(sizes)
+          : { ...(sizes || {}) },
+      ])
+    );
   }
 
   return {};
 };
 
-// Validate product ID and size before using them in MongoDB paths.
+// Validate product ID and size.
 const validateCartItem = (itemId, size) => {
   if (!mongoose.isValidObjectId(itemId)) {
     return "Invalid product ID";
@@ -33,7 +47,7 @@ const validateCartItem = (itemId, size) => {
   return null;
 };
 
-// ---------------- GET USER CART ----------------
+// ---------------- GET CART ----------------
 
 export const getCart = async (req, res) => {
   try {
@@ -60,12 +74,11 @@ export const getCart = async (req, res) => {
   }
 };
 
-// ---------------- ADD ITEM TO CART ----------------
+// ---------------- ADD TO CART ----------------
 
 export const addToCart = async (req, res) => {
   try {
     const { itemId, size } = req.body;
-
     const validationError = validateCartItem(itemId, size);
 
     if (validationError) {
@@ -75,13 +88,12 @@ export const addToCart = async (req, res) => {
       });
     }
 
-    const userId = req.user._id;
+    const safeSize = size.trim();
+    const cartPath = `cartData.${itemId}.${safeSize}`;
 
-    // Atomic increment: safely increases quantity by 1.
-    const cartPath = `cartData.${itemId}.${size}`;
-
+    // Atomically increment only this product's selected size.
     const user = await userModel.findByIdAndUpdate(
-      userId,
+      req.user._id,
       {
         $inc: {
           [cartPath]: 1,
@@ -115,12 +127,11 @@ export const addToCart = async (req, res) => {
   }
 };
 
-// ---------------- UPDATE CART QUANTITY ----------------
+// ---------------- UPDATE CART ----------------
 
 export const updateCart = async (req, res) => {
   try {
     const { itemId, size, quantity } = req.body;
-
     const validationError = validateCartItem(itemId, size);
 
     if (validationError) {
@@ -134,8 +145,8 @@ export const updateCart = async (req, res) => {
 
     if (
       !Number.isFinite(parsedQuantity) ||
-      parsedQuantity < 0 ||
-      !Number.isInteger(parsedQuantity)
+      !Number.isInteger(parsedQuantity) ||
+      parsedQuantity < 0
     ) {
       return res.status(400).json({
         success: false,
@@ -143,23 +154,21 @@ export const updateCart = async (req, res) => {
       });
     }
 
-    const cartPath = `cartData.${itemId}.${size}`;
+    const safeSize = size.trim();
+    const cartPath = `cartData.${itemId}.${safeSize}`;
 
-    let updateOperation;
-
-    if (parsedQuantity === 0) {
-      updateOperation = {
-        $unset: {
-          [cartPath]: "",
-        },
-      };
-    } else {
-      updateOperation = {
-        $set: {
-          [cartPath]: parsedQuantity,
-        },
-      };
-    }
+    const updateOperation =
+      parsedQuantity === 0
+        ? {
+            $unset: {
+              [cartPath]: "",
+            },
+          }
+        : {
+            $set: {
+              [cartPath]: parsedQuantity,
+            },
+          };
 
     const user = await userModel.findByIdAndUpdate(
       req.user._id,
