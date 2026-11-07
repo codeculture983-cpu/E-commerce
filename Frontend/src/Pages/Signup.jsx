@@ -1,5 +1,7 @@
+
 import React, { useState, useContext } from "react";
 import axios from "axios";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { ShopContext } from "../Context/ShopContext";
 import { toast } from "react-toastify";
 import { Link } from "react-router-dom";
@@ -10,6 +12,7 @@ const Signup = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,7 +46,9 @@ const Signup = () => {
         onSubmit={handleSubmit}
         className="flex flex-col w-[90%] sm:max-w-96 gap-4 border p-6 rounded-lg shadow"
       >
-        <h1 className="text-3xl font-semibold text-center">Sign Up</h1>
+        <h1 className="text-3xl font-semibold text-center">
+          Sign Up
+        </h1>
 
         {/* Name */}
         <input
@@ -65,15 +70,26 @@ const Signup = () => {
           required
         />
 
-        {/* Password */}
-        <input
-          type="password"
-          placeholder="Password"
-          className="w-full border p-2"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        {/* Password with Show/Hide Effect */}
+        <div className="relative w-full">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            className="w-full border p-2 pr-10"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <FaEye /> : <FaEyeSlash />}
+          </button>
+        </div>
 
         {/* Button */}
         <button className="bg-black text-white py-2 w-full">
@@ -84,10 +100,6 @@ const Signup = () => {
         <div className="flex justify-between text-sm mt-2">
           <Link to="/login" className="text-blue-600">
             Already have account? Login
-          </Link>
-
-          <Link to="/forgot-password" className="text-green-600">
-            Forgot Password
           </Link>
         </div>
       </form>
