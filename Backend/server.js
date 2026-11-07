@@ -1,4 +1,4 @@
-```js
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -112,4 +112,4 @@ const port = process.env.PORT || 4000;
 server.listen(port, () => {
   console.log(`🚀 FOREVER server running on port ${port}`);
 });
-```
+
