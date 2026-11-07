@@ -474,6 +474,7 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
+
 export const generateInvoice = async (req, res) => {
   try {
     const order = await orderModel.findById(req.params.orderId);
@@ -482,7 +483,6 @@ export const generateInvoice = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // ================= HEADERS =================
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
@@ -496,7 +496,7 @@ export const generateInvoice = async (req, res) => {
 
     let y = 40;
 
-    // ================= HEADER BLOCK =================
+    // HEADER
     doc
       .fontSize(22)
       .fillColor("#111")
@@ -510,12 +510,10 @@ export const generateInvoice = async (req, res) => {
       .text("INVOICE", 40, y, { align: "center" });
 
     y += 40;
-
     doc.fillColor("#000");
 
-    // ================= INVOICE META BOX =================
+    // INVOICE DETAILS
     doc.fontSize(10);
-
     doc.text(`Invoice ID: INV-${order._id}`, 40, y);
     doc.text(`Order ID: ${order._id}`, 40, y + 15);
     doc.text(`Date: ${new Date(order.createdAt).toLocaleString()}`, 40, y + 30);
@@ -524,14 +522,13 @@ export const generateInvoice = async (req, res) => {
 
     y += 60;
 
-    // ================= BILLING =================
+    // BILLING DETAILS
     const a = order.address || {};
 
     doc.fontSize(12).text("BILLING DETAILS", 40, y);
     y += 20;
 
     doc.fontSize(10);
-
     doc.text(`${safe(a.firstName)} ${safe(a.lastName)}`, 40, y);
     doc.text(safe(a.email), 40, y + 15);
     doc.text(safe(a.phone), 40, y + 30);
@@ -539,7 +536,7 @@ export const generateInvoice = async (req, res) => {
 
     y += 80;
 
-    // ================= TABLE HEADER =================
+    // PRODUCT TABLE
     doc.fontSize(10).fillColor("#444");
 
     doc.text("#", 40, y);
@@ -552,31 +549,35 @@ export const generateInvoice = async (req, res) => {
 
     y += 25;
 
-    // ================= ITEMS =================
     let subtotal = 0;
 
     (order.items || []).forEach((item, i) => {
       const name = item?.snapshot?.name || "Product";
       const qty = Number(item?.quantity || 1);
       const price = Number(item?.snapshot?.price || 0);
-      const total = qty * price;
+      const itemTotal = qty * price;
 
-      subtotal += total;
+      subtotal += itemTotal;
 
       doc.fillColor("#000");
-
       doc.text(i + 1, 40, y);
       doc.text(name.substring(0, 30), 80, y);
       doc.text(qty, 300, y);
       doc.text(price.toFixed(2), 370, y);
-      doc.text(total.toFixed(2), 450, y);
+      doc.text(itemTotal.toFixed(2), 450, y);
 
       y += 20;
     });
 
-    // ================= TOTAL BOX =================
-    const tax = subtotal * 0.18;
-    const grandTotal = subtotal + tax;
+    // TOTALS — NO GST
+    const deliveryFee =
+      order.paymentMethod === "COD" ||
+      order.paymentMethod === "Stripe" ||
+      order.paymentMethod === "Razorpay"
+        ? deliveryCharge
+        : 0;
+
+    const grandTotal = subtotal + deliveryFee;
 
     y += 20;
 
@@ -590,21 +591,21 @@ export const generateInvoice = async (req, res) => {
 
     y += 15;
 
-    doc.text("GST (18%):", 350, y);
-    doc.text(tax.toFixed(2), 450, y);
+    doc.text("Delivery Fee:", 350, y);
+    doc.text(deliveryFee.toFixed(2), 450, y);
 
     y += 20;
 
     doc.fontSize(12).text("GRAND TOTAL:", 350, y);
     doc.text(grandTotal.toFixed(2), 450, y);
 
-    // ================= FOOTER =================
+    // FOOTER
     y += 60;
 
     doc
       .fontSize(11)
       .fillColor("#333")
-      .text("Thank you for shopping with FOREVER STORE ", 40, y, {
+      .text("Thank you for shopping with FOREVER STORE", 40, y, {
         align: "center",
       });
 
@@ -614,7 +615,6 @@ export const generateInvoice = async (req, res) => {
     res.status(500).json({ message: "Invoice generation failed" });
   }
 };
-
 
 export const processRefund = async (req, res) => {
   try {
