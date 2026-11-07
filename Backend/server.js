@@ -22,7 +22,6 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// ================= TRUST PROXY =================
 app.set("trust proxy", 1);
 
 // ================= ALLOWED ORIGINS =================
@@ -30,54 +29,48 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://forever-gamma-eight.vercel.app",
-  "https://forever-admin-ivory-alpha.vercel.app"
+  "https://forever-admin-ivory-alpha.vercel.app",
 ];
 
-// ================= CORS FIX =================
+// ================= CORS CONFIGURATION =================
 const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
     console.log("❌ BLOCKED ORIGIN:", origin);
-
     return callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// Apply CORS
 app.use(cors(corsOptions));
 
-// IMPORTANT: preflight fix
-app.options("*", cors(corsOptions));
+// ================= MIDDLEWARE =================
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ================= SOCKET.IO =================
 export const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     credentials: true,
+    methods: ["GET", "POST"],
   },
 });
 
-// ================= MIDDLEWARE =================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// ================= DB =================
-connectDB();
-connectCloudinary();
-
-// ================= LOGS =================
+// ================= REQUEST LOGS =================
 app.use((req, res, next) => {
   console.log(`➡ ${req.method} ${req.url}`);
   next();
 });
+
+// ================= DATABASE =================
+connectDB();
+connectCloudinary();
 
 // ================= ROUTES =================
 app.use("/api/product", productRoutes);
@@ -90,9 +83,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/cms", cmsRoutes);
 app.use("/api/settings", settingsRoutes);
 
-// ================= TEST =================
+// ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
-  res.send("🚀 Backend working with STRICT CORS FIX");
+  res.status(200).send("FOREVER Backend is running successfully 🚀");
 });
 
 // ================= ERROR HANDLER =================
@@ -101,13 +94,13 @@ app.use((err, req, res, next) => {
 
   res.status(500).json({
     success: false,
-    message: err.message,
+    message: "Internal server error",
   });
 });
 
-// ================= START =================
+// ================= START SERVER =================
 const port = process.env.PORT || 4000;
 
 server.listen(port, () => {
-  console.log("🚀 Server running on port", port);
+  console.log(`🚀 FOREVER server running on port ${port}`);
 });
