@@ -34,6 +34,34 @@ const safe = (value) => {
   return value;
 };
 
+// ================= AVAILABLE STATUS OPTIONS =================
+const getAvailableStatuses = (currentStatus) => {
+  if (
+    currentStatus === "Cancelled" ||
+    currentStatus === "Delivered"
+  ) {
+    return [currentStatus];
+  }
+
+  const currentIndex = statusFlow.indexOf(currentStatus);
+
+  // Support older orders with statuses not in the current flow
+  if (currentIndex === -1) {
+    return [
+      currentStatus,
+      ...statusFlow.filter((status) => status !== "Order Placed"),
+    ];
+  }
+
+  return [
+    currentStatus,
+    ...statusFlow.slice(currentIndex + 1).filter(
+      (status) => status !== "Cancelled"
+    ),
+    "Cancelled",
+  ];
+};
+
 const Orders = ({ token }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +101,7 @@ const Orders = ({ token }) => {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        timeout: 15000,
       });
 
       const safeOrders = (res.data.orders || []).map((order) => ({
@@ -132,7 +161,7 @@ const Orders = ({ token }) => {
 
     const interval = setInterval(() => {
       fetchOrders(false);
-    }, 10000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [token, fetchOrders]);
@@ -140,6 +169,20 @@ const Orders = ({ token }) => {
   // ================= UPDATE STATUS =================
   const updateStatus = async (id, status) => {
     if (updatingOrders.includes(id)) return;
+
+    const existingOrder = orders.find((order) => order._id === id);
+
+    if (!existingOrder) return;
+
+    const currentStatus = existingOrder.status || "Order Placed";
+    const allowedStatuses = getAvailableStatuses(currentStatus);
+
+    if (!allowedStatuses.includes(status)) {
+      toast.error("You cannot select a previous order status.");
+      return;
+    }
+
+    if (status === currentStatus) return;
 
     setUpdatingOrders((prev) => [...prev, id]);
 
@@ -151,26 +194,30 @@ const Orders = ({ token }) => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          timeout: 10000,
         }
       );
 
-      if (res.data.success === false) {
-        throw new Error(res.data.message || "Status update failed");
+      if (!res.data.success) {
+        throw new Error(
+          res.data.message || "Status update failed"
+        );
       }
 
-      // Update status immediately in admin UI
+      // Update admin UI immediately after server confirmation
       setOrders((prev) =>
         prev.map((order) =>
           order._id === id
-            ? { ...order, status }
+            ? {
+                ...order,
+                status: res.data.order?.status || status,
+              }
             : order
         )
       );
 
       toast.success(`Order status updated to ${status}`);
 
-      // Confirm latest saved status from backend
-      await fetchOrders(false);
     } catch (error) {
       console.log("Update status error:", error);
 
@@ -180,7 +227,6 @@ const Orders = ({ token }) => {
         "Order status update failed"
       );
 
-      // Reload actual status if update failed
       await fetchOrders(false);
     } finally {
       setUpdatingOrders((prev) =>
@@ -343,6 +389,12 @@ const Orders = ({ token }) => {
 
         {paginatedOrders.map((order) => {
           const isUpdating = updatingOrders.includes(order._id);
+          const currentStatus = order.status || "Order Placed";
+          const availableStatuses = getAvailableStatuses(currentStatus);
+
+          const isFinalStatus =
+            currentStatus === "Cancelled" ||
+            currentStatus === "Delivered";
 
           return (
             <div
@@ -377,10 +429,10 @@ const Orders = ({ token }) => {
 
                 <span
                   className={`px-3 py-1 text-white rounded w-fit h-fit ${
-                    statusColors[order.status] || "bg-gray-500"
+                    statusColors[currentStatus] || "bg-gray-500"
                   }`}
                 >
-                  {order.status || "Order Placed"}
+                  {currentStatus}
                 </span>
 
               </div>
@@ -390,14 +442,14 @@ const Orders = ({ token }) => {
 
                 {/* UPDATE STATUS */}
                 <select
-                  className="border p-2 rounded w-full sm:w-auto"
-                  value={order.status || "Order Placed"}
-                  disabled={isUpdating}
+                  className="border p-2 rounded w-full sm:w-auto disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  value={currentStatus}
+                  disabled={isUpdating || isFinalStatus}
                   onChange={(e) =>
                     updateStatus(order._id, e.target.value)
                   }
                 >
-                  {statusFlow.map((status) => (
+                  {availableStatuses.map((status) => (
                     <option key={status} value={status}>
                       {status}
                     </option>
@@ -415,6 +467,12 @@ const Orders = ({ token }) => {
                 {isUpdating && (
                   <span className="text-sm text-blue-600 self-center">
                     Updating status...
+                  </span>
+                )}
+
+                {isFinalStatus && (
+                  <span className="text-sm text-gray-500 self-center">
+                    This order is closed.
                   </span>
                 )}
 
